@@ -298,3 +298,34 @@
 .calendar-cell.reserved:hover {
   background: rgba(59, 130, 246, 0.25);
 }
+
+.lab-name {
+  font-weight: 600;
+}
+
+.lab-building {
+  font-size: 0.8rem;
+  opacity: 0.7;
+  margin-top: 2px;
+}
+
+.avaible-text {
+  color: #4ade80;
+  font-weight: 600;
+}
+
+.full-text {
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.past-cell {
+  background-color: #f0f0f0;
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.past-text {
+  color: #999;
+  font-size: 18px;
+}
