@@ -329,3 +329,65 @@
   color: #999;
   font-size: 18px;
 }
+
+/* Create Team Modal specific styles */
+.team-members-list {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 8px;
+  background: rgba(15, 23, 42, 0.5);
+  margin-bottom: 24px;
+}
+
+.team-member-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.team-member-option:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.team-member-option.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.team-member-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.team-member-name {
+  font-size: 14px;
+  color: #f8fafc;
+}
+
+.team-member-nocontrol {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.create-team-btn {
+  width: 100%;
+  background: rgba(59, 130, 246, 0.1);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  padding: 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 12px;
+  font-weight: bold;
+}
+
+.create-team-btn:hover {
+  background: rgba(59, 130, 246, 0.2);
+}

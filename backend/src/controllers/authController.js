@@ -6,7 +6,11 @@ const login = async (req, res) => {
 
         //consulta
         const [rows] = await pool.query(
-            'SELECT * FROM usuarios WHERE correo = ?', 
+            `SELECT u.*, a.noControl AS noControlAlumno, d.noControl AS noControlDocente 
+             FROM usuarios u 
+             LEFT JOIN alumnos a ON u.idUsuario = a.idUsuario 
+             LEFT JOIN docentes d ON u.idUsuario = d.idUsuario 
+             WHERE u.correo = ?`, 
             [correo]
         );
     
@@ -31,11 +35,14 @@ const login = async (req, res) => {
             });
         }
 
+        const noControl = usuario.tipo === 'alumno' ? usuario.noControlAlumno : usuario.noControlDocente;
+
         res.json({
             ok: true,
             mensaje: 'Login exitoso',
             usuario: {
                 idUsuario: usuario.idUsuario,
+                noControl: noControl,
                 nombre: usuario.nombre,
                 apellidos: usuario.apellidos,
                 sexo: usuario.sexo,
