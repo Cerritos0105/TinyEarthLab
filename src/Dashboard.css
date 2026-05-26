@@ -4,7 +4,7 @@
   width: 100vw;
   background-color: var(--bg-color, #0f172a);
   color: var(--text-main, #f8fafc);
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: "Inter", system-ui, sans-serif;
 }
 
 /* Sidebar Styles */
@@ -33,7 +33,7 @@
   font-size: 20px;
   margin: 0;
   background: linear-gradient(135deg, #34d399 0%, #3b82f6 100%);
-  -webkit-background-clip: text;
+  /*-webkit-background-clip: text;*/
   -webkit-text-fill-color: transparent;
 }
 

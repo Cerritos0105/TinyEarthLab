@@ -66,7 +66,31 @@ const laboratoriosMostrarSiempre = async (req, res) => {
 };
 
 
+const obtenerTodosLaboratorios = async (req, res) => {
+    try {
+        const [rows] = await pool.query(
+            `
+            SELECT *
+            FROM laboratorios;
+            `
+        );
+
+        res.json({
+            ok: true,
+            laboratorios: rows
+        });
+
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({
+            ok: false,
+            mensaje: 'Error servidor'
+        });
+    }
+};
+
 module.exports = {
     laboratoriosAlumno,
-    laboratoriosMostrarSiempre
+    laboratoriosMostrarSiempre,
+    obtenerTodosLaboratorios
 };

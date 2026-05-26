@@ -3,7 +3,8 @@ const router = express.Router();
 
 const {
     laboratoriosAlumno, 
-    laboratoriosMostrarSiempre
+    laboratoriosMostrarSiempre,
+    obtenerTodosLaboratorios
 } = require('../controllers/laboratoriosController');
 
 router.get(
@@ -14,6 +15,11 @@ router.get(
 router.get(
     '/siempre-disponibles',
     laboratoriosMostrarSiempre
+);
+
+router.get(
+    '/todos',
+    obtenerTodosLaboratorios
 );
 
 module.exports = router;
