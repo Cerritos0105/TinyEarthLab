@@ -7,8 +7,6 @@ const {
     cancelarReserva,
     cancelarHoraReserva,
     obtenerEstadisticasLab,
-    bloquearDia,
-    desbloquearDia
 } = require('../controllers/reservasController');
 
 router.get(
@@ -34,16 +32,6 @@ router.post(
 router.get(
     '/estadisticas/laboratorio/:idLaboratorio',
     obtenerEstadisticasLab
-);
-
-router.post(
-    '/bloquear-dia',
-    bloquearDia
-);
-
-router.post(
-    '/desbloquear-dia',
-    desbloquearDia
 );
 
 module.exports = router;
