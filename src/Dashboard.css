@@ -319,6 +319,12 @@
   font-weight: 700;
 }
 
+.full-cell {
+  background-color: #f0f0f0;
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .past-cell {
   background-color: #f0f0f0;
   opacity: 0.5;
