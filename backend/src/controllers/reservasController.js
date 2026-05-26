@@ -3,8 +3,8 @@ const pool = require('../config/db');
 const reservasLaboratorio = async (req, res) => {
 
     try {
-
         const { idLaboratorio } = req.params;
+        const { noControl } = req.query;
 
         const [rows] = await pool.query(
             `
@@ -13,14 +13,15 @@ const reservasLaboratorio = async (req, res) => {
                 r.fecha,
                 r.hora,
                 r.estado,
-                eq.nombre AS equipoNombre
+                eq.nombre AS equipoNombre,
+                (SELECT COUNT(*) FROM alumno_equipo ae WHERE ae.idEquipo = r.idEquipo AND ae.idAlumno = ?) > 0 AS esMia
             FROM reservas r
             INNER JOIN estaciones e ON r.idEstacion = e.idEstacion
             INNER JOIN equipos eq ON r.idEquipo = eq.idEquipo
             WHERE e.idLaboratorio = ?
             AND r.estado = 'confirmada'
             `,
-            [idLaboratorio]
+            [noControl || null, idLaboratorio]
         );
 
         res.json({
@@ -71,9 +72,21 @@ const crearReserva = async (req, res) => {
             return res.status(404).json({ ok: false, mensaje: 'Equipo no encontrado' });
         }
 
-        // 2. Encontrar una estación disponible en el laboratorio para esa fecha y hora
+        // 3. Verificar que el equipo no tenga ya una reserva en esta fecha y hora
+        const [reservaExistente] = await connection.query(
+            `SELECT idReserva FROM reservas 
+             WHERE idEquipo = ? AND fecha = ? AND hora = ? AND estado = 'confirmada'`,
+            [idEquipo, fecha, hora]
+        );
+
+        if (reservaExistente.length > 0) {
+            await connection.rollback();
+            return res.status(400).json({ ok: false, mensaje: 'Este equipo ya cuenta con una reserva en este horario.' });
+        }
+
+        // 4. Encontrar una estación disponible en el laboratorio para esa fecha y hora
         const [estaciones] = await connection.query(
-            `SELECT e.idEstacion 
+            `SELECT e.idEstacion, e.noEstacion
              FROM estaciones e
              WHERE e.idLaboratorio = ? AND e.estado = 'disponible'
              AND e.idEstacion NOT IN (
@@ -90,8 +103,9 @@ const crearReserva = async (req, res) => {
         }
 
         const idEstacion = estaciones[0].idEstacion;
+        const noEstacion = estaciones[0].noEstacion;
 
-        // 3. Crear la reserva
+        // 5. Crear la reserva
         await connection.query(
             `INSERT INTO reservas (idEquipo, idEstacion, fecha, hora, estado)
              VALUES (?, ?, ?, ?, 'confirmada')`,
@@ -103,7 +117,8 @@ const crearReserva = async (req, res) => {
         res.json({
             ok: true,
             mensaje: 'Reserva creada exitosamente',
-            idEstacion
+            idEstacion,
+            noEstacion
         });
 
     } catch (error) {
@@ -123,9 +138,8 @@ const cancelarReserva = async (req, res) => {
         return res.status(400).json({ ok: false, mensaje: 'Faltan datos obligatorios para cancelar' });
     }
 
-    // Solo admin y maestros/docentes pueden cancelar reservas a través de esta vía
-    if (tipo !== 'administrador' && tipo !== 'maestro' && tipo !== 'docente') {
-        return res.status(403).json({ ok: false, mensaje: 'No tienes permisos para cancelar reservas' });
+    if (tipo !== 'administrador' && tipo !== 'maestro' && tipo !== 'docente' && tipo !== 'alumno') {
+        return res.status(403).json({ ok: false, mensaje: 'Tipo de usuario no válido' });
     }
 
     const connection = await pool.getConnection();
@@ -162,7 +176,32 @@ const cancelarReserva = async (req, res) => {
             }
         }
 
-        // Si pasamos validaciones (es admin o es maestro autorizado), cancelamos la reserva
+        // Si es alumno, verificar si pertenece al equipo de la reserva
+        if (tipo === 'alumno') {
+            const [reservaInfo] = await connection.query(
+                `SELECT idEquipo FROM reservas WHERE idReserva = ?`,
+                [idReserva]
+            );
+
+            if (reservaInfo.length === 0) {
+                await connection.rollback();
+                return res.status(404).json({ ok: false, mensaje: 'Reserva no encontrada' });
+            }
+
+            const idEquipo = reservaInfo[0].idEquipo;
+
+            const [perteneceInfo] = await connection.query(
+                `SELECT 1 FROM alumno_equipo WHERE idEquipo = ? AND idAlumno = ? LIMIT 1`,
+                [idEquipo, noControl]
+            );
+
+            if (perteneceInfo.length === 0) {
+                await connection.rollback();
+                return res.status(403).json({ ok: false, mensaje: 'No tienes permisos para cancelar esta reserva porque no perteneces al equipo' });
+            }
+        }
+
+        // Si pasamos validaciones, cancelamos la reserva
         const [result] = await connection.query(
             `UPDATE reservas SET estado = 'cancelada' WHERE idReserva = ?`,
             [idReserva]

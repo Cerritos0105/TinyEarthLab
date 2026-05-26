@@ -299,7 +299,7 @@ export default function Dashboard({ onLogout }) {
 
       const data = await response.json();
       if (data.ok) {
-        alert("Reserva exitosa en la estación " + data.idEstacion);
+        alert("Reserva exitosa en la estación " + data.noEstacion);
         setShowReservaModal(false);
         obtenerReservas(selectedLab); // Refrescar el calendario
       } else {
@@ -317,11 +317,15 @@ export default function Dashboard({ onLogout }) {
 
   const abrirModalGestion = (fecha, hora) => {
     // Filtrar reservas para este slot
-    const reservasEnSlot = reservas.filter((reserva) => {
+    let reservasEnSlot = reservas.filter((reserva) => {
       const reservaFecha = reserva.fecha.split("T")[0];
       const reservaHora = reserva.hora.substring(0, 5);
       return reservaFecha === fecha && reservaHora === hora;
     });
+
+    if (usuario.tipo !== "maestro" && usuario.tipo !== "administrador" && usuario.tipo !== "docente") {
+      reservasEnSlot = reservasEnSlot.filter(r => r.esMia);
+    }
 
     if (reservasEnSlot.length > 0) {
       setReservaSlot({ fecha, hora });
@@ -529,7 +533,7 @@ export default function Dashboard({ onLogout }) {
   const obtenerReservas = async (idLab) => {
     try {
       const response = await fetch(
-        `http://localhost:3000/api/reservas/laboratorio/${idLab}`,
+        `http://localhost:3000/api/reservas/laboratorio/${idLab}?noControl=${usuario.noControl || ''}`,
       );
 
       const data = await response.json();
@@ -868,6 +872,12 @@ export default function Dashboard({ onLogout }) {
 
                   const reservadas = contarReservas(dateString, hora);
 
+                  const esMiReserva = reservas.some(r => {
+                    const rFecha = r.fecha.split("T")[0];
+                    const rHora = r.hora.substring(0, 5);
+                    return rFecha === dateString && rHora === hora && r.esMia;
+                  });
+
                   const disponibles = laboratorioActual?.capacidad - reservadas;
                   // =========================================
                   // VALIDAR SI EL HORARIO YA PASÓ
@@ -888,10 +898,11 @@ export default function Dashboard({ onLogout }) {
                         ${horarioPasado && !isBlocked ? "past-cell" : ""}
                         ${(disponibles <= 0 && !isBlocked) ? "reserved" : ""}
                         ${isBlocked ? "blocked-cell" : ""}
+                        ${esMiReserva ? "mi-reserva-cell" : ""}
                       `}
                       style={{
-                        backgroundColor: isBlocked ? "rgba(239, 68, 68, 0.15)" : "",
-                        borderColor: isBlocked ? "rgba(239, 68, 68, 0.3)" : "",
+                        backgroundColor: isBlocked ? "rgba(239, 68, 68, 0.15)" : (esMiReserva && !isBlocked && !horarioPasado ? "rgba(34, 197, 94, 0.2)" : ""),
+                        borderColor: isBlocked ? "rgba(239, 68, 68, 0.3)" : (esMiReserva && !isBlocked && !horarioPasado ? "rgba(34, 197, 94, 0.5)" : ""),
                         cursor: isBlocked ? "not-allowed" : ""
                       }}
                       title={isBlocked ? "Día bloqueado" : "Horario del laboratorio"}
@@ -900,6 +911,8 @@ export default function Dashboard({ onLogout }) {
                         if (horarioPasado && !esMaestro) return;
 
                         if (esMaestro) {
+                          abrirModalGestion(dateString, hora);
+                        } else if (esMiReserva) {
                           abrirModalGestion(dateString, hora);
                         } else if (disponibles > 0) {
                           abrirModalReserva(dateString, hora);
@@ -915,7 +928,7 @@ export default function Dashboard({ onLogout }) {
                       ) : (
                         <div className="available-text">
                           {disponibles} espacio
-                          {disponibles !== 1 ? "s" : ""}
+                          {disponibles !== 0 ? "s" : ""}
                         </div>
                       )}
                     </div>
@@ -1138,7 +1151,7 @@ export default function Dashboard({ onLogout }) {
       {showGestionModal && (
         <div className="modal-overlay">
           <div className="modal-content login-glass-card" style={{ maxWidth: "550px" }}>
-            <h2>Gestionar Reservas</h2>
+            <h2>{usuario.tipo === "maestro" || usuario.tipo === "administrador" || usuario.tipo === "docente" ? "Gestionar Reservas" : "Mis Reservas"}</h2>
             <p style={{ color: "var(--text-muted)", marginBottom: "20px" }}>
               {reservaSlot?.fecha} - {reservaSlot?.hora}
             </p>
@@ -1201,7 +1214,7 @@ export default function Dashboard({ onLogout }) {
               >
                 Cerrar
               </button>
-              {reservasParaGestion.length > 0 && (
+              {reservasParaGestion.length > 0 && (usuario.tipo === "maestro" || usuario.tipo === "administrador" || usuario.tipo === "docente") && (
                 <button
                   style={{
                     background: "rgba(239, 68, 68, 0.2)",

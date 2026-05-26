@@ -11,7 +11,7 @@ const laboratoriosAlumno = async (req, res) => {
 	            l.idLaboratorio,
                 l.nombre, 
                 l.edificio,
-                l.capacidad
+                (SELECT COUNT(*) FROM estaciones e WHERE e.idLaboratorio = l.idLaboratorio AND e.estado = 'disponible') as capacidad
             from CLASES c
             inner join INSCRIPCIONES i on c.idClase = i.idClase
             inner join LABORATORIOS l on c.idLaboratorio = l.idLaboratorio
@@ -43,9 +43,10 @@ const laboratoriosMostrarSiempre = async (req, res) => {
 
         const [rows] = await pool.query(
             `
-            select *
-            from LABORATORIOS
-            where mostrarSiempre = true;
+            select l.idLaboratorio, l.nombre, l.edificio, l.mostrarSiempre,
+                   (SELECT COUNT(*) FROM estaciones e WHERE e.idLaboratorio = l.idLaboratorio AND e.estado = 'disponible') as capacidad
+            from LABORATORIOS l
+            where l.mostrarSiempre = true;
             `
         );
 
@@ -70,8 +71,9 @@ const obtenerTodosLaboratorios = async (req, res) => {
     try {
         const [rows] = await pool.query(
             `
-            SELECT *
-            FROM laboratorios;
+            SELECT l.idLaboratorio, l.nombre, l.edificio, l.mostrarSiempre,
+                   (SELECT COUNT(*) FROM estaciones e WHERE e.idLaboratorio = l.idLaboratorio AND e.estado = 'disponible') as capacidad
+            FROM laboratorios l;
             `
         );
 
