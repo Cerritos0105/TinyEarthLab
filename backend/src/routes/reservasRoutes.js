@@ -41,9 +41,6 @@ router.post(
     bloquearDia
 );
 
-router.post(
-    '/desbloquear-dia',
-    desbloquearDia
-);
+router.post('/desbloquear-dia', desbloquearDia);
 
 module.exports = router;

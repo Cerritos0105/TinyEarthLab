@@ -879,6 +879,8 @@ export default function Dashboard({ onLogout }) {
 
                   const horarioPasado = fechaHoraCelda < ahora;
 
+                  const esMaestro = usuario.tipo === "maestro" || usuario.tipo === "administrador" || usuario.tipo === "docente";
+
                   return (
                     <div
                       key={`${selectedLab}-${dateString}-${hora}`}
@@ -894,11 +896,13 @@ export default function Dashboard({ onLogout }) {
                       }}
                       title={isBlocked ? "Día bloqueado" : "Horario del laboratorio"}
                       onClick={() => {
-                        if (horarioPasado || isBlocked) return;
-                        if (disponibles > 0) {
-                          abrirModalReserva(dateString, hora);
-                        } else if (usuario.tipo === "maestro" || usuario.tipo === "administrador" || usuario.tipo === "docente") {
+                        if (isBlocked) return;
+                        if (horarioPasado && !esMaestro) return;
+
+                        if (esMaestro) {
                           abrirModalGestion(dateString, hora);
+                        } else if (disponibles > 0) {
+                          abrirModalReserva(dateString, hora);
                         }
                       }}
                     >
@@ -1183,7 +1187,7 @@ export default function Dashboard({ onLogout }) {
               </ul>
             )}
 
-            <div style={{ display: "flex", gap: "10px", marginTop: "24px", justifyContent: "flex-end" }}>
+            <div style={{ display: "flex", gap: "10px", marginTop: "24px", justifyContent: "flex-end", flexWrap: "wrap" }}>
               <button
                 style={{
                   background: "transparent",

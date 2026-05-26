@@ -24,10 +24,7 @@ const reservasLaboratorio = async (req, res) => {
         );
 
         const [blockedRows] = await pool.query(
-            `
-            SELECT fecha FROM dias_bloqueados
-            WHERE idLaboratorio = ?
-            `,
+            `SELECT fecha FROM dias_bloqueados WHERE idLaboratorio = ?`,
             [idLaboratorio]
         );
 
@@ -70,51 +67,24 @@ const crearReserva = async (req, res) => {
             return res.status(403).json({ ok: false, mensaje: 'Este día está bloqueado por un maestro y no admite reservas.' });
         }
 
-        // 1. Validar si el equipo tiene acceso a este laboratorio
-        // A. Obtener detalles del laboratorio
+        // 1. Verificar que el laboratorio existe
         const [labRows] = await connection.query(
-            'SELECT mostrarSiempre FROM laboratorios WHERE idLaboratorio = ?',
+            'SELECT idLaboratorio FROM laboratorios WHERE idLaboratorio = ?',
             [idLaboratorio]
         );
         if (labRows.length === 0) {
             await connection.rollback();
             return res.status(404).json({ ok: false, mensaje: 'Laboratorio no encontrado' });
         }
-        const mostrarSiempre = labRows[0].mostrarSiempre;
 
-        // B. Obtener detalles del equipo
+        // 2. Verificar que el equipo existe
         const [equipoRows] = await connection.query(
-            'SELECT idClase FROM equipos WHERE idEquipo = ?',
+            'SELECT idEquipo FROM equipos WHERE idEquipo = ?',
             [idEquipo]
         );
         if (equipoRows.length === 0) {
             await connection.rollback();
             return res.status(404).json({ ok: false, mensaje: 'Equipo no encontrado' });
-        }
-        const idClaseEquipo = equipoRows[0].idClase;
-
-        // C. Si el laboratorio NO es libre (mostrarSiempre = 0), validar la clase del equipo
-        if (mostrarSiempre === 0) {
-            if (!idClaseEquipo) {
-                await connection.rollback();
-                return res.status(403).json({ 
-                    ok: false, 
-                    mensaje: 'Este laboratorio es exclusivo para clases. Un equipo libre no puede reservarlo.' 
-                });
-            }
-
-            // Verificar si la clase del equipo está asignada a este laboratorio
-            const [claseRows] = await connection.query(
-                'SELECT idLaboratorio FROM clases WHERE idClase = ?',
-                [idClaseEquipo]
-            );
-            if (claseRows.length === 0 || claseRows[0].idLaboratorio !== parseInt(idLaboratorio, 10)) {
-                await connection.rollback();
-                return res.status(403).json({ 
-                    ok: false, 
-                    mensaje: 'Este equipo pertenece a una clase diferente y no tiene acceso a este laboratorio.' 
-                });
-            }
         }
 
         // 2. Encontrar una estación disponible en el laboratorio para esa fecha y hora
