@@ -1,36 +1,6 @@
 import { useState } from 'react';
 import './Login.css';
 
-// Componente de partículas de fondo
-function Particles() {
-  const items = Array.from({ length: 20 }, (_, i) => ({
-    id: i,
-    left: `${Math.random() * 100}%`,
-    duration: `${6 + Math.random() * 10}s`,
-    delay: `${Math.random() * 8}s`,
-    size: `${2 + Math.random() * 3}px`,
-    opacity: 0.3 + Math.random() * 0.5,
-  }));
-
-  return (
-    <div className="particles">
-      {items.map(p => (
-        <div
-          key={p.id}
-          className="particle"
-          style={{
-            left: p.left,
-            '--duration': p.duration,
-            '--delay': p.delay,
-            width: p.size,
-            height: p.size,
-            opacity: p.opacity,
-          }}
-        />
-      ))}
-    </div>
-  );
-}
 
 export default function Login({ onLogin }) {
   const [email, setEmail] = useState('');
@@ -67,31 +37,7 @@ export default function Login({ onLogin }) {
 
   return (
     <div className="login-container">
-
-      {/* ── LADO IZQUIERDO: HERO ── */}
-      <div className="login-hero">
-        <Particles />
-        <div className="hero-content">
-          <div className="hero-globe">
-            <div className="globe-ring" />
-          </div>
-
-          <h2 className="hero-title">TinyEarthLab</h2>
-          <p className="hero-subtitle">
-            Reserva laboratorios de forma rápida, segura y colaborativa con tu equipo.
-          </p>
-
-          <div className="hero-badges">
-            <span className="hero-badge">🔬 Laboratorios</span>
-            <span className="hero-badge">👥 Equipos</span>
-            <span className="hero-badge">📅 Reservas</span>
-          </div>
-        </div>
-      </div>
-
-      {/* ── LADO DERECHO: FORMULARIO ── */}
-      <div className="login-right">
-        <div className="login-glass-card">
+      <div className="login-glass-card">
 
           <div className="login-header">
             <span className="logo-icon">🌍</span>
@@ -154,9 +100,7 @@ export default function Login({ onLogin }) {
             Instituto Tecnológico Superior del Sur de Guanajuato
           </div>
 
-        </div>
       </div>
-
     </div>
   );
 }

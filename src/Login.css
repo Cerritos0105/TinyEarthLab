@@ -32,6 +32,8 @@ body, html, #root {
   height: 100vh;
   width: 100%;
   display: flex;
+  align-items: center;
+  justify-content: center;
   background: var(--bg-deep);
   overflow: hidden;
   position: relative;
@@ -60,7 +62,7 @@ body, html, #root {
     linear-gradient(rgba(16, 185, 129, 0.04) 1px, transparent 1px),
     linear-gradient(90deg, rgba(16, 185, 129, 0.04) 1px, transparent 1px);
   background-size: 48px 48px;
-  animation: gridMove 20s linear infinite;
+  /* animation: gridMove 20s linear infinite; */
 }
 
 @keyframes gridMove {
@@ -79,7 +81,7 @@ body, html, #root {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  animation: pulse-orb 4s ease-in-out infinite;
+  /* animation: pulse-orb 4s ease-in-out infinite; */
 }
 
 @keyframes pulse-orb {
@@ -118,7 +120,7 @@ body, html, #root {
     inset -20px -20px 40px rgba(0,0,0,0.5);
   position: relative;
   overflow: hidden;
-  animation: globeSpin 20s linear infinite;
+  /* animation: globeSpin 20s linear infinite; */
 }
 
 .globe-ring::before {
@@ -138,7 +140,7 @@ body, html, #root {
   inset: -5%;
   border-radius: 50%;
   border: 2px solid rgba(16, 185, 129, 0.3);
-  animation: orbit 8s linear infinite;
+  /* animation: orbit 8s linear infinite; */
 }
 
 @keyframes globeSpin {
@@ -187,7 +189,7 @@ body, html, #root {
   border-radius: 50%;
   background: #10b981;
   opacity: 0;
-  animation: floatParticle var(--duration, 8s) var(--delay, 0s) ease-in-out infinite;
+  /* animation: floatParticle var(--duration, 8s) var(--delay, 0s) ease-in-out infinite; */
 }
 
 @keyframes floatParticle {
@@ -246,7 +248,7 @@ body, html, #root {
   display: block;
   margin-bottom: 16px;
   filter: drop-shadow(0 0 16px rgba(16,185,129,0.6));
-  animation: float 5s ease-in-out infinite;
+  /* animation: float 5s ease-in-out infinite; */
 }
 
 @keyframes float {
