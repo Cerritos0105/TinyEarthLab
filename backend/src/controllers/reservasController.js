@@ -105,10 +105,14 @@ const crearReserva = async (req, res) => {
         const idEstacion = estaciones[0].idEstacion;
         const noEstacion = estaciones[0].noEstacion;
 
-        // 5. Crear la reserva
+        // 5. Crear la reserva (usamos ON DUPLICATE KEY por si había una cancelada en esa misma estación)
         await connection.query(
             `INSERT INTO reservas (idEquipo, idEstacion, fecha, hora, estado)
-             VALUES (?, ?, ?, ?, 'confirmada')`,
+             VALUES (?, ?, ?, ?, 'confirmada')
+             ON DUPLICATE KEY UPDATE 
+                idEquipo = VALUES(idEquipo), 
+                estado = 'confirmada',
+                fechaRegistro = CURRENT_TIMESTAMP`,
             [idEquipo, idEstacion, fecha, hora]
         );
 
@@ -299,29 +303,44 @@ const obtenerEstadisticasLab = async (req, res) => {
     try {
         const { idLaboratorio } = req.params;
 
-        const [rows] = await pool.query(
-            `
-            SELECT 
-                r.hora, 
-                COUNT(*) as usos
-            FROM reservas r
-            INNER JOIN estaciones e ON r.idEstacion = e.idEstacion
-            WHERE e.idLaboratorio = ? AND r.estado = 'confirmada'
-            GROUP BY r.hora
-            ORDER BY r.hora ASC
-            `,
+        // Stats por hora
+        const [rowsHora] = await pool.query(
+            `SELECT r.hora, COUNT(*) as usos
+             FROM reservas r
+             INNER JOIN estaciones e ON r.idEstacion = e.idEstacion
+             WHERE e.idLaboratorio = ? AND r.estado = 'confirmada'
+             GROUP BY r.hora
+             ORDER BY r.hora ASC`,
             [idLaboratorio]
         );
 
-        // Transformamos el formato de hora (e.g. "08:00:00" -> "08:00")
-        const stats = rows.map(r => ({
+        // Stats por día de la semana (1=Domingo, 2=Lunes ... 7=Sábado en MySQL)
+        const [rowsDia] = await pool.query(
+            `SELECT DAYOFWEEK(r.fecha) as diaSemana, COUNT(*) as usos
+             FROM reservas r
+             INNER JOIN estaciones e ON r.idEstacion = e.idEstacion
+             WHERE e.idLaboratorio = ? AND r.estado = 'confirmada'
+             GROUP BY DAYOFWEEK(r.fecha)
+             ORDER BY DAYOFWEEK(r.fecha) ASC`,
+            [idLaboratorio]
+        );
+
+        const nombresDia = { 2: 'Lunes', 3: 'Martes', 4: 'Miércoles', 5: 'Jueves', 6: 'Viernes', 7: 'Sábado', 1: 'Domingo' };
+
+        const statsPorHora = rowsHora.map(r => ({
             hora: r.hora.substring(0, 5),
+            usos: r.usos
+        }));
+
+        const statsPorDia = rowsDia.map(r => ({
+            dia: nombresDia[r.diaSemana] || `Día ${r.diaSemana}`,
             usos: r.usos
         }));
 
         res.json({
             ok: true,
-            estadisticas: stats
+            estadisticas: statsPorHora,
+            estadisticasPorDia: statsPorDia
         });
 
     } catch (error) {

@@ -67,7 +67,7 @@ export default function Dashboard({ onLogout }) {
   const [showCreateTeamModal, setShowCreateTeamModal] = useState(false);
   const [nombreEquipo, setNombreEquipo] = useState("");
   const [clasesAlumno, setClasesAlumno] = useState([]);
-  const [selectedClaseEquipo, setSelectedClaseEquipo] = useState("");
+  const [selectedClaseEquipo, setSelectedClaseEquipo] = useState("999");
 
   const [showReservaModal, setShowReservaModal] = useState(false);
   const [reservaSlot, setReservaSlot] = useState(null);
@@ -81,406 +81,212 @@ export default function Dashboard({ onLogout }) {
   // Estados para estadísticas
   const [showStatsModal, setShowStatsModal] = useState(false);
   const [statsData, setStatsData] = useState([]);
+  const [statsDiaData, setStatsDiaData] = useState([]);
   const chartRef = useRef(null);
 
   // Estados para Mis Equipos
   const [showMisEquiposModal, setShowMisEquiposModal] = useState(false);
   const [todosEquipos, setTodosEquipos] = useState([]);
-  const [showEditEquipoModal, setShowEditEquipoModal] = useState(false);
-  const [editingEquipo, setEditingEquipo] = useState(null);
-  const [editNombreEquipo, setEditNombreEquipo] = useState("");
-  const [editMiembros, setEditMiembros] = useState([]);
 
   // =========================================
-  // OBTENER LABORATORIOS DE CLASES
+  // MODALES DE NOTIFICACIÓN Y CONFIRMACIÓN
   // =========================================
+  const [notif, setNotif] = useState({ show: false, message: "", type: "info" });
+  const [confirmModal, setConfirmModal] = useState({ show: false, message: "", onConfirm: null });
 
+  const showAlert = (message, type = "info") => setNotif({ show: true, message, type });
+  const hideAlert = () => setNotif({ show: false, message: "", type: "info" });
+  const showConfirm = (message, onConfirm) => setConfirmModal({ show: true, message, onConfirm });
+  const hideConfirm = () => setConfirmModal({ show: false, message: "", onConfirm: null });
+
+  // =========================================
+  // OBTENER LABORATORIOS
+  // =========================================
   const obtenerLaboratoriosClase = async () => {
     try {
-      const response = await fetch(
-        `http://localhost:3000/api/laboratorios/alumno/${usuario.idUsuario}`,
-      );
-
-      const data = await response.json();
-
-      console.log("LABORATORIOS CLASE:", data);
-
-      if (data.ok) {
-        setLaboratoriosClase(data.laboratorios);
-
-        return data.laboratorios;
-      }
-
+      const r = await fetch(`http://localhost:3000/api/laboratorios/alumno/${usuario.idUsuario}`);
+      const d = await r.json();
+      if (d.ok) { setLaboratoriosClase(d.laboratorios); return d.laboratorios; }
       return [];
-    } catch (error) {
-      console.log(error);
-
-      return [];
-    }
+    } catch { return []; }
   };
-
-  // =========================================
-  // OBTENER LABORATORIOS SIEMPRE
-  // =========================================
-
   const obtenerLaboratoriosSiempre = async () => {
     try {
-      const response = await fetch(
-        "http://localhost:3000/api/laboratorios/siempre-disponibles",
-      );
-
-      const data = await response.json();
-
-      console.log("LABORATORIOS SIEMPRE:", data);
-
-      if (data.ok) {
-        setLaboratoriosSiempre(data.laboratorios);
-
-        return data.laboratorios;
-      }
-
+      const r = await fetch("http://localhost:3000/api/laboratorios/siempre-disponibles");
+      const d = await r.json();
+      if (d.ok) { setLaboratoriosSiempre(d.laboratorios); return d.laboratorios; }
       return [];
-    } catch (error) {
-      console.log(error);
-
-      return [];
-    }
+    } catch { return []; }
   };
 
   // =========================================
-  // OBTENER ALUMNOS PARA EQUIPOS
+  // OBTENER ALUMNOS / CLASES
   // =========================================
-
   const obtenerAlumnosDb = async () => {
     try {
-      const response = await fetch("http://localhost:3000/api/alumnos");
-      const data = await response.json();
-      if (Array.isArray(data)) {
-        setAlumnosDb(data);
-      }
-    } catch (error) {
-      console.log("Error obtaining students:", error);
-    }
+      const r = await fetch("http://localhost:3000/api/alumnos");
+      const d = await r.json();
+      if (Array.isArray(d)) setAlumnosDb(d);
+    } catch (e) { console.log(e); }
   };
-
   const obtenerClasesAlumno = async () => {
     try {
       if (!usuario.noControl) return;
-      const response = await fetch(
-        `http://localhost:3000/api/clases/alumno/${usuario.noControl}`,
-      );
-      const data = await response.json();
-      if (data.ok) {
-        setClasesAlumno(data.clases);
-      }
-    } catch (error) {
-      console.log("Error obtaining classes for student:", error);
-    }
+      const r = await fetch(`http://localhost:3000/api/clases/alumno/${usuario.noControl}`);
+      const d = await r.json();
+      if (d.ok) setClasesAlumno(d.clases);
+    } catch (e) { console.log(e); }
   };
 
+  // =========================================
+  // EQUIPOS
+  // =========================================
   const abrirModalEquipos = () => {
-    setNombreEquipo("");
-    obtenerAlumnosDb();
-    obtenerClasesAlumno();
-    setSelectedClaseEquipo("");
-    setSelectedTeamMembers([]);
-    setShowCreateTeamModal(true);
+    setNombreEquipo(""); obtenerAlumnosDb(); obtenerClasesAlumno();
+    setSelectedClaseEquipo("999"); setSelectedTeamMembers([]); setShowCreateTeamModal(true);
   };
-
   const handleToggleMember = (noControl) => {
     setSelectedTeamMembers((prev) => {
-      if (prev.includes(noControl)) {
-        return prev.filter((id) => id !== noControl);
-      } else {
-        if (prev.length >= 3) return prev; // maximo 3
-        return [...prev, noControl];
-      }
+      if (prev.includes(noControl)) return prev.filter((id) => id !== noControl);
+      if (prev.length >= 3) return prev;
+      return [...prev, noControl];
     });
   };
-
   const handleCrearEquipo = async () => {
-    if (!nombreEquipo.trim()) {
-      alert("Debes ingresar un nombre para el equipo.");
-      return;
-    }
-    if (selectedTeamMembers.length === 0 || selectedTeamMembers.length > 3) {
-      alert("Debes seleccionar entre 1 y 3 alumnos.");
-      return;
-    }
-
+    if (!nombreEquipo.trim()) { showAlert("Debes ingresar un nombre para el equipo.", "error"); return; }
+    if (selectedTeamMembers.length === 0 || selectedTeamMembers.length > 3) { showAlert("Debes seleccionar entre 1 y 3 alumnos.", "error"); return; }
     try {
-      const response = await fetch("http://localhost:3000/api/equipos", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          nombreEquipo,
-          alumnos: selectedTeamMembers,
-          idClase: selectedClaseEquipo,
-        }),
+      const r = await fetch("http://localhost:3000/api/equipos", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nombreEquipo, alumnos: selectedTeamMembers, idClase: selectedClaseEquipo }),
       });
-
-      const data = await response.json();
-      if (data.ok) {
-        alert("Equipo creado exitosamente (ID: " + data.idEquipo + ")");
-        setShowCreateTeamModal(false);
-        setSelectedTeamMembers([]);
-        setNombreEquipo("");
-        setSelectedClaseEquipo("");
-      } else {
-        alert(data.error + (data.detalles ? ": " + data.detalles : ""));
-      }
-    } catch (error) {
-      console.error(error);
-      alert("Error de conexión al crear equipo");
-    }
+      const d = await r.json();
+      if (d.ok) {
+        showAlert("Equipo creado exitosamente", "success");
+        setShowCreateTeamModal(false); setSelectedTeamMembers([]); setNombreEquipo(""); setSelectedClaseEquipo("999");
+      } else { showAlert(d.error + (d.detalles ? ": " + d.detalles : ""), "error"); }
+    } catch { showAlert("Error de conexión al crear equipo", "error"); }
   };
 
   // =========================================
-  // LÓGICA DE RESERVA
+  // RESERVAS
   // =========================================
-
   const obtenerMisEquipos = async (idClase) => {
     try {
       if (!usuario.noControl) return;
-      const response = await fetch("http://localhost:3000/api/equipos/alumno", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          noControl: usuario.noControl,
-          idClase: idClase,
-        }),
+      const r = await fetch("http://localhost:3000/api/equipos/alumno", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ noControl: usuario.noControl, idClase }),
       });
-      const data = await response.json();
-      if (data.ok) {
-        setMisEquipos(data.equipos);
-      }
-    } catch (error) {
-      console.log("Error obtaining teams:", error);
-    }
+      const d = await r.json();
+      if (d.ok) setMisEquipos(d.equipos);
+    } catch (e) { console.log(e); }
   };
-
   const abrirModalReserva = (fecha, hora) => {
-    const classForCurrentLab = clasesAlumno.find(
-      (cl) => cl.idLaboratorio == selectedLab,
-    );
-    const idClaseReserva = classForCurrentLab
-      ? classForCurrentLab.idClase
-      : 'TODAS';
-
-    obtenerMisEquipos(idClaseReserva);
-    setReservaSlot({ fecha, hora });
-    setSelectedEquipoReserva(null);
-    setShowReservaModal(true);
+    const cl = clasesAlumno.find((c) => c.idLaboratorio == selectedLab);
+    obtenerMisEquipos(cl ? cl.idClase : "TODAS");
+    setReservaSlot({ fecha, hora }); setSelectedEquipoReserva(null); setShowReservaModal(true);
   };
-
   const handleCrearReserva = async () => {
-    if (!selectedEquipoReserva) {
-      alert("Por favor selecciona un equipo para la reserva.");
-      return;
-    }
-
+    if (!selectedEquipoReserva) { showAlert("Por favor selecciona un equipo.", "error"); return; }
     try {
-      const response = await fetch("http://localhost:3000/api/reservas", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          idEquipo: selectedEquipoReserva,
-          idLaboratorio: selectedLab,
-          fecha: reservaSlot.fecha,
-          hora: reservaSlot.hora,
-        }),
+      const r = await fetch("http://localhost:3000/api/reservas", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idEquipo: selectedEquipoReserva, idLaboratorio: selectedLab, fecha: reservaSlot.fecha, hora: reservaSlot.hora }),
       });
-
-      const data = await response.json();
-      if (data.ok) {
-        alert("Reserva exitosa en la estación " + data.noEstacion);
-        setShowReservaModal(false);
-        obtenerReservas(selectedLab); // Refrescar el calendario
-      } else {
-        alert(data.mensaje || "Error al reservar");
-      }
-    } catch (error) {
-      console.error(error);
-      alert("Error de conexión al realizar la reserva");
-    }
+      const d = await r.json();
+      if (d.ok) { showAlert("Reserva exitosa en la estación " + d.noEstacion, "success"); setShowReservaModal(false); obtenerReservas(selectedLab); }
+      else showAlert(d.mensaje || "Error al reservar", "error");
+    } catch { showAlert("Error de conexión al realizar la reserva", "error"); }
   };
 
   // =========================================
-  // GESTIÓN DE RESERVAS (MAESTROS/ADMIN)
+  // GESTIÓN DE RESERVAS
   // =========================================
-
   const abrirModalGestion = (fecha, hora) => {
-    // Filtrar reservas para este slot
-    let reservasEnSlot = reservas.filter((reserva) => {
-      const reservaFecha = reserva.fecha.split("T")[0];
-      const reservaHora = reserva.hora.substring(0, 5);
-      return reservaFecha === fecha && reservaHora === hora;
+    let slots = reservas.filter((r) => r.fecha.split("T")[0] === fecha && r.hora.substring(0, 5) === hora);
+    if (usuario.tipo !== "maestro" && usuario.tipo !== "administrador" && usuario.tipo !== "docente") slots = slots.filter((r) => r.esMia);
+    if (slots.length > 0) { setReservaSlot({ fecha, hora }); setReservasParaGestion(slots); setShowGestionModal(true); }
+  };
+  const handleCancelarHora = () => {
+    showConfirm("¿Estás seguro de cancelar TODAS las reservas en esta hora?", async () => {
+      try {
+        const r = await fetch("http://localhost:3000/api/reservas/cancelar-hora", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ idLaboratorio: selectedLab, fecha: reservaSlot.fecha, hora: reservaSlot.hora, noControl: usuario.noControl, tipo: usuario.tipo }),
+        });
+        const d = await r.json();
+        if (d.ok) { showAlert(`Se cancelaron ${d.reservasCanceladas} reservas`, "success"); setReservasParaGestion([]); setShowGestionModal(false); obtenerReservas(selectedLab); }
+        else showAlert(d.mensaje || "Error al cancelar", "error");
+      } catch { showAlert("Error de conexión al cancelar la hora", "error"); }
     });
-
-    if (usuario.tipo !== "maestro" && usuario.tipo !== "administrador" && usuario.tipo !== "docente") {
-      reservasEnSlot = reservasEnSlot.filter(r => r.esMia);
-    }
-
-    if (reservasEnSlot.length > 0) {
-      setReservaSlot({ fecha, hora });
-      setReservasParaGestion(reservasEnSlot);
-      setShowGestionModal(true);
-    }
   };
-
-  const handleCancelarHora = async () => {
-    if (!window.confirm("¿Estás seguro de cancelar TODAS las reservas en esta hora?")) {
-      return;
-    }
-
-    try {
-      const response = await fetch(`http://localhost:3000/api/reservas/cancelar-hora`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          idLaboratorio: selectedLab,
-          fecha: reservaSlot.fecha,
-          hora: reservaSlot.hora,
-          noControl: usuario.noControl,
-          tipo: usuario.tipo,
-        }),
-      });
-
-      const data = await response.json();
-      
-      if (data.ok) {
-        alert(`Se han cancelado ${data.reservasCanceladas} reservas exitosamente`);
-        setReservasParaGestion([]);
-        setShowGestionModal(false);
-        obtenerReservas(selectedLab); // Refrescar el calendario principal
-      } else {
-        alert(data.mensaje || "Error al cancelar la hora completa");
-      }
-    } catch (error) {
-      console.error("Error cancelando hora:", error);
-      alert("Error de conexión al cancelar la hora");
-    }
+  const handleCancelarReservaIndividual = (idReserva) => {
+    showConfirm("¿Cancelar esta reserva individual?", async () => {
+      try {
+        const r = await fetch(`http://localhost:3000/api/reservas/cancelar/${idReserva}`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ noControl: usuario.noControl, tipo: usuario.tipo }),
+        });
+        const d = await r.json();
+        if (d.ok) {
+          showAlert("Reserva cancelada correctamente", "success");
+          const nuevas = reservasParaGestion.filter((r) => r.idReserva !== idReserva);
+          setReservasParaGestion(nuevas);
+          if (nuevas.length === 0) setShowGestionModal(false);
+          obtenerReservas(selectedLab);
+        } else showAlert(d.mensaje || "Error al cancelar", "error");
+      } catch { showAlert("Error de conexión", "error"); }
+    });
   };
 
   // =========================================
-  // CARGAR TODOS LOS LABORATORIOS
+  // CARGAR LABORATORIOS
   // =========================================
-
   const cargarLaboratorios = async () => {
     try {
-      const response = await fetch("http://localhost:3000/api/laboratorios/todos");
-      const data = await response.json();
-      if (data.ok) {
-        setLaboratorios(data.laboratorios);
-        setLaboratoriosSiempre([]);
-        setLaboratoriosClase([]);
-        if (data.laboratorios.length > 0) {
-          setSelectedLab(data.laboratorios[0].idLaboratorio);
-        }
+      const r = await fetch("http://localhost:3000/api/laboratorios/todos");
+      const d = await r.json();
+      if (d.ok) {
+        setLaboratorios(d.laboratorios); setLaboratoriosSiempre([]); setLaboratoriosClase([]);
+        if (d.laboratorios.length > 0) setSelectedLab(d.laboratorios[0].idLaboratorio);
       }
-    } catch (error) {
-      console.error("Error fetching all labs:", error);
-    }
+    } catch (e) { console.error(e); }
   };
 
   // =========================================
-  // FUNCIONES MIS EQUIPOS
+  // MIS EQUIPOS
   // =========================================
-
   const obtenerTodosEquipos = async () => {
     try {
-      const response = await fetch("http://localhost:3000/api/equipos/alumno", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ noControl: usuario.noControl, idClase: 'TODAS' }),
+      const r = await fetch("http://localhost:3000/api/equipos/alumno", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ noControl: usuario.noControl, idClase: "TODAS" }),
       });
-      const data = await response.json();
-
-      if (data.ok) {
-        setTodosEquipos(data.equipos);
-      } else {
-        setTodosEquipos([]);
-      }
-    } catch (error) {
-      console.error("Error obteniendo equipos:", error);
-    }
+      const d = await r.json();
+      if (d.ok) setTodosEquipos(d.equipos); else setTodosEquipos([]);
+    } catch (e) { console.error(e); }
   };
-
-  const handleEliminarEquipo = async (idEquipo) => {
-    if (!window.confirm("¿Estás seguro de eliminar este equipo? Esto también eliminará sus reservas.")) return;
-    try {
-      const response = await fetch(`http://localhost:3000/api/equipos/${idEquipo}`, {
-        method: "DELETE",
-      });
-      const data = await response.json();
-      if (data.ok) {
-        alert("Equipo eliminado");
-        obtenerTodosEquipos();
-      } else {
-        alert(data.error || "Error al eliminar");
-      }
-    } catch (error) {
-      console.error(error);
-      alert("Error de conexión");
-    }
-  };
-
-  const abrirEditarEquipo = (equipo) => {
-    setEditingEquipo(equipo);
-    setEditNombreEquipo(equipo.nombre);
-    setEditMiembros(equipo.alumnos || []);
-    obtenerAlumnosDb();
-    setShowEditEquipoModal(true);
-  };
-
-  const handleEditarEquipo = async () => {
-    if (!editNombreEquipo || editMiembros.length === 0) {
-      alert("Nombre y al menos 1 miembro son requeridos");
-      return;
-    }
-    try {
-      const response = await fetch(`http://localhost:3000/api/equipos/${editingEquipo.idEquipo}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          nombreEquipo: editNombreEquipo,
-          alumnos: editMiembros,
-          idClase: null,
-        }),
-      });
-      const data = await response.json();
-      if (data.ok) {
-        alert("Equipo actualizado");
-        setShowEditEquipoModal(false);
-        obtenerTodosEquipos();
-      } else {
-        alert(data.error || "Error al editar");
-      }
-    } catch (error) {
-      console.error(error);
-      alert("Error de conexión");
-    }
+  const handleEliminarEquipo = (idEquipo) => {
+    showConfirm("¿Estás seguro de eliminar este equipo? Esto también eliminará sus reservas.", async () => {
+      try {
+        const r = await fetch(`http://localhost:3000/api/equipos/${idEquipo}`, { method: "DELETE" });
+        const d = await r.json();
+        if (d.ok) { showAlert("Equipo eliminado correctamente", "success"); obtenerTodosEquipos(); }
+        else showAlert(d.error || "Error al eliminar", "error");
+      } catch { showAlert("Error de conexión", "error"); }
+    });
   };
 
   // =========================================
-  // FUNCIONES EXPORTAR GRÁFICA
+  // EXPORTAR
   // =========================================
-
   const exportarExcel = () => {
-    const ws = XLSX.utils.json_to_sheet(statsData.map(d => ({ Hora: d.hora, "Reservas Confirmadas": d.usos })));
+    const ws = XLSX.utils.json_to_sheet(statsData.map((d) => ({ Hora: d.hora, "Reservas Confirmadas": d.usos })));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Estadísticas");
     XLSX.writeFile(wb, `estadisticas_${laboratorioActual?.nombre || "lab"}.xlsx`);
   };
-
   const exportarPDF = async () => {
     if (!chartRef.current) return;
     try {
@@ -489,128 +295,65 @@ export default function Dashboard({ onLogout }) {
       const pdf = new jsPDF("landscape", "mm", "a4");
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      pdf.setFillColor(15, 23, 42);
-      pdf.rect(0, 0, pdfWidth, pdf.internal.pageSize.getHeight(), "F");
-      pdf.setTextColor(255, 255, 255);
-      pdf.setFontSize(18);
+      pdf.setFillColor(15, 23, 42); pdf.rect(0, 0, pdfWidth, pdf.internal.pageSize.getHeight(), "F");
+      pdf.setTextColor(255, 255, 255); pdf.setFontSize(18);
       pdf.text(`Estadísticas - ${laboratorioActual?.nombre || "Laboratorio"}`, 14, 20);
       pdf.addImage(imgData, "PNG", 14, 30, pdfWidth - 28, pdfHeight - 10);
       pdf.save(`estadisticas_${laboratorioActual?.nombre || "lab"}.pdf`);
-    } catch (error) {
-      console.error("Error exportando PDF:", error);
-      alert("Error al exportar PDF");
-    }
-  };
-
-  const handleCancelarReservaIndividual = async (idReserva) => {
-    if (!window.confirm("¿Cancelar esta reserva individual?")) return;
-    try {
-      const response = await fetch(`http://localhost:3000/api/reservas/cancelar/${idReserva}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ noControl: usuario.noControl, tipo: usuario.tipo }),
-      });
-      const data = await response.json();
-      if (data.ok) {
-        alert("Reserva cancelada");
-        const nuevas = reservasParaGestion.filter(r => r.idReserva !== idReserva);
-        setReservasParaGestion(nuevas);
-        if (nuevas.length === 0) setShowGestionModal(false);
-        obtenerReservas(selectedLab);
-      } else {
-        alert(data.mensaje || "Error al cancelar");
-      }
-    } catch (error) {
-      console.error(error);
-      alert("Error de conexión");
-    }
+    } catch { showAlert("Error al exportar PDF", "error"); }
   };
 
   // =========================================
   // OBTENER RESERVAS
   // =========================================
-
   const obtenerReservas = async (idLab) => {
     try {
-      const response = await fetch(
-        `http://localhost:3000/api/reservas/laboratorio/${idLab}?noControl=${usuario.noControl || ''}`,
-      );
-
-      const data = await response.json();
-
-      if (data.ok) {
-        setReservas(data.reservas);
-        setDiasBloqueados(data.diasBloqueados || []);
-      } else {
-        setReservas([]);
-        setDiasBloqueados([]);
-      }
-    } catch (error) {
-      console.log(error);
-      setReservas([]);
-      setDiasBloqueados([]);
-    }
+      const r = await fetch(`http://localhost:3000/api/reservas/laboratorio/${idLab}?noControl=${usuario.noControl || ""}`);
+      const d = await r.json();
+      if (d.ok) { setReservas(d.reservas); setDiasBloqueados(d.diasBloqueados || []); }
+      else { setReservas([]); setDiasBloqueados([]); }
+    } catch { setReservas([]); setDiasBloqueados([]); }
   };
-
   const obtenerEstadisticas = async (idLab) => {
     try {
-      const response = await fetch(`http://localhost:3000/api/reservas/estadisticas/laboratorio/${idLab}`);
-      const data = await response.json();
-      if (data.ok) {
-        setStatsData(data.estadisticas);
-        setShowStatsModal(true);
-      }
-    } catch (error) {
-      console.error("Error obteniendo estadísticas:", error);
-    }
+      const r = await fetch(`http://localhost:3000/api/reservas/estadisticas/laboratorio/${idLab}`);
+      const d = await r.json();
+      if (d.ok) { setStatsData(d.estadisticas); setStatsDiaData(d.estadisticasPorDia || []); setShowStatsModal(true); }
+    } catch (e) { console.error(e); }
   };
 
   // =========================================
   // BLOQUEAR / DESBLOQUEAR DÍAS
   // =========================================
-
-  const handleToggleBloquearDia = async (fechaString) => {
+  const handleToggleBloquearDia = (fechaString) => {
     const isBlocked = diasBloqueados.includes(fechaString);
     const accionText = isBlocked ? "desbloquear" : "bloquear";
     const confirmMsg = isBlocked
       ? `¿Estás seguro de que deseas desbloquear el día ${fechaString}?`
       : `¿Estás seguro de que deseas bloquear todo el día ${fechaString}? ¡Esto eliminará todas las reservas de ese día!`;
 
-    if (!window.confirm(confirmMsg)) return;
-
-    try {
-      const endpoint = isBlocked ? "desbloquear-dia" : "bloquear-dia";
-      const response = await fetch(`http://localhost:3000/api/reservas/${endpoint}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fecha: fechaString, idLaboratorio: selectedLab }),
-      });
-
-      const data = await response.json();
-      if (data.ok) {
-        alert(data.mensaje);
-        obtenerReservas(selectedLab);
-      } else {
-        alert("Error: " + data.mensaje);
-      }
-    } catch (error) {
-      console.error(error);
-      alert("Error de conexión al " + accionText + " día.");
-    }
+    showConfirm(confirmMsg, async () => {
+      try {
+        const endpoint = isBlocked ? "desbloquear-dia" : "bloquear-dia";
+        const r = await fetch(`http://localhost:3000/api/reservas/${endpoint}`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fecha: fechaString, idLaboratorio: selectedLab }),
+        });
+        const d = await r.json();
+        if (d.ok) { showAlert(d.mensaje, "success"); obtenerReservas(selectedLab); }
+        else showAlert("Error: " + d.mensaje, "error");
+      } catch { showAlert("Error de conexión al " + accionText + " día.", "error"); }
+    });
   };
 
   // =========================================
-  // CARGAR LABORATORIOS AL INICIO
+  // EFECTOS
   // =========================================
 
   useEffect(() => {
     cargarLaboratorios();
     obtenerClasesAlumno();
   }, []);
-
-  // =========================================
-  // CARGAR RESERVAS CUANDO CAMBIA LAB
-  // =========================================
 
   useEffect(() => {
     if (selectedLab) {
@@ -621,7 +364,6 @@ export default function Dashboard({ onLogout }) {
   // =========================================
   // LABORATORIO ACTUAL
   // =========================================
-
   const laboratorioActual = laboratorios.find(
     (lab) => lab.idLaboratorio == selectedLab,
   );
@@ -775,7 +517,7 @@ export default function Dashboard({ onLogout }) {
                 style={{ background: "rgba(59, 130, 246, 0.15)", borderColor: "rgba(59, 130, 246, 0.3)" }}
                 onClick={() => { obtenerTodosEquipos(); setShowMisEquiposModal(true); }}
               >
-                👥 Mis Equipos
+                Mis Equipos
               </button>
             </>
           )}
@@ -811,7 +553,7 @@ export default function Dashboard({ onLogout }) {
                   onMouseOver={(e) => e.target.style.background = "rgba(59, 130, 246, 0.4)"}
                   onMouseOut={(e) => e.target.style.background = "rgba(59, 130, 246, 0.2)"}
                 >
-                  📊 Ver Estadísticas
+                  Ver Estadísticas
                 </button>
               )}
             </p>
@@ -851,7 +593,7 @@ export default function Dashboard({ onLogout }) {
                   title={canBlock ? (isBlocked ? "Clic para desbloquear" : "Clic para bloquear el día") : ""}
                   style={{ cursor: canBlock ? "pointer" : "default", transition: "all 0.2s" }}
                 >
-                  {formatHeaderDate(date)} {isBlocked && "🔒"}
+                  {formatHeaderDate(date)} {isBlocked }
                 </div>
               );
             })}
@@ -901,8 +643,20 @@ export default function Dashboard({ onLogout }) {
                         ${esMiReserva ? "mi-reserva-cell" : ""}
                       `}
                       style={{
-                        backgroundColor: isBlocked ? "rgba(239, 68, 68, 0.15)" : (esMiReserva && !isBlocked && !horarioPasado ? "rgba(34, 197, 94, 0.2)" : ""),
-                        borderColor: isBlocked ? "rgba(239, 68, 68, 0.3)" : (esMiReserva && !isBlocked && !horarioPasado ? "rgba(34, 197, 94, 0.5)" : ""),
+                        backgroundColor: isBlocked 
+                          ? "rgba(239, 68, 68, 0.15)" 
+                          : (!isBlocked && !horarioPasado 
+                              ? (esMiReserva 
+                                  ? "rgba(34, 197, 94, 0.2)" 
+                                  : (reservadas > 0 ? "rgba(59, 130, 246, 0.15)" : ""))
+                              : ""),
+                        borderColor: isBlocked 
+                          ? "rgba(239, 68, 68, 0.3)" 
+                          : (!isBlocked && !horarioPasado 
+                              ? (esMiReserva 
+                                  ? "rgba(34, 197, 94, 0.5)" 
+                                  : (reservadas > 0 ? "rgba(59, 130, 246, 0.3)" : ""))
+                              : ""),
                         cursor: isBlocked ? "not-allowed" : ""
                       }}
                       title={isBlocked ? "Día bloqueado" : "Horario del laboratorio"}
@@ -920,7 +674,7 @@ export default function Dashboard({ onLogout }) {
                       }}
                     >
                       {isBlocked ? (
-                        <div className="blocked-text" style={{ color: "#f87171", fontSize: "12px", fontWeight: "bold" }}>🔒 Bloqueado</div>
+                        <div className="blocked-text" style={{ color: "#f87171", fontSize: "12px", fontWeight: "bold" }}>Bloqueado</div>
                       ) : horarioPasado ? (
                         <div className="past-text">—</div>
                       ) : disponibles <= 0 ? (
@@ -997,7 +751,7 @@ export default function Dashboard({ onLogout }) {
                 }}
               >
                 <option
-                  value=""
+                  value="999"
                   style={{ background: "#1e293b", color: "white" }}
                 >
                   Ninguna - Acceso Libre
@@ -1193,7 +947,7 @@ export default function Dashboard({ onLogout }) {
                       onMouseOver={(e) => e.target.style.background = "rgba(239, 68, 68, 0.35)"}
                       onMouseOut={(e) => e.target.style.background = "rgba(239, 68, 68, 0.15)"}
                     >
-                      ✕ Quitar
+                      Quitar
                     </button>
                   </li>
                 ))}
@@ -1230,7 +984,7 @@ export default function Dashboard({ onLogout }) {
                   onMouseOut={(e) => e.target.style.background = "rgba(239, 68, 68, 0.2)"}
                   onClick={handleCancelarHora}
                 >
-                  🗑 Liberar Toda la Hora
+                  Liberar Toda la Hora
                 </button>
               )}
             </div>
@@ -1241,25 +995,61 @@ export default function Dashboard({ onLogout }) {
       {/* MODAL ESTADÍSTICAS */}
       {showStatsModal && (
         <div className="modal-overlay">
-          <div className="modal-content login-glass-card" style={{ maxWidth: "700px", width: "90%" }}>
+          <div className="modal-content login-glass-card" style={{ maxWidth: "800px", width: "95%" }}>
             <h2>Estadísticas de Uso</h2>
             <p style={{ color: "var(--text-muted)", marginBottom: "20px" }}>
-              {laboratorioActual?.nombre} - Histórico de Reservas por Hora
+              {laboratorioActual?.nombre} — Reservas confirmadas históricas
             </p>
 
-            <div ref={chartRef} style={{ width: '100%', height: 300, background: '#0f172a', borderRadius: '8px', padding: '10px' }}>
+            {/* Gráfica por hora */}
+            <p style={{ color: "#94a3b8", fontSize: "13px", marginBottom: "8px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px" }}>Por Hora del Día</p>
+            <div ref={chartRef} style={{ width: '100%', height: 240, background: 'rgba(15,23,42,0.7)', borderRadius: '10px', padding: '10px', marginBottom: '24px', border: '1px solid rgba(255,255,255,0.05)' }}>
               <ResponsiveContainer>
-                <BarChart data={statsData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
-                  <XAxis dataKey="hora" stroke="#cbd5e1" />
-                  <YAxis stroke="#cbd5e1" allowDecimals={false} />
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.9)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', color: '#fff' }}
+                <BarChart data={statsData} margin={{ top: 10, right: 20, left: 0, bottom: 5 }}>
+                  <XAxis dataKey="hora" stroke="#cbd5e1" tick={{ fontSize: 12 }} />
+                  <YAxis stroke="#cbd5e1" allowDecimals={false} tick={{ fontSize: 12 }} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.95)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', color: '#fff' }}
                     itemStyle={{ color: '#60a5fa' }}
                   />
-                  <Bar dataKey="usos" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Reservas Confirmadas" />
+                  <Bar dataKey="usos" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Reservas" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
+
+            {/* Gráfica por día */}
+            <p style={{ color: "#94a3b8", fontSize: "13px", marginBottom: "8px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px" }}>Por Día de la Semana</p>
+            <div style={{ width: '100%', height: 240, background: 'rgba(15,23,42,0.7)', borderRadius: '10px', padding: '10px', marginBottom: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+              {statsDiaData.length === 0 ? (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#64748b', fontSize: '14px' }}>Sin datos suficientes</div>
+              ) : (
+                <ResponsiveContainer>
+                  <BarChart data={statsDiaData} margin={{ top: 10, right: 20, left: 0, bottom: 5 }}>
+                    <XAxis dataKey="dia" stroke="#cbd5e1" tick={{ fontSize: 12 }} />
+                    <YAxis stroke="#cbd5e1" allowDecimals={false} tick={{ fontSize: 12 }} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.95)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', color: '#fff' }}
+                      itemStyle={{ color: '#a78bfa' }}
+                      formatter={(val, name) => [val, 'Reservas']}
+                    />
+                    <Bar
+                      dataKey="usos"
+                      radius={[4, 4, 0, 0]}
+                      name="Reservas"
+                      fill="#8b5cf6"
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+            {statsDiaData.length > 0 && (() => {
+              const max = statsDiaData.reduce((a, b) => a.usos > b.usos ? a : b);
+              return (
+                <p style={{ color: '#a78bfa', fontSize: '13px', marginBottom: '20px', textAlign: 'center' }}>
+                  El día más concurrido es <strong style={{ color: '#c4b5fd' }}>{max.dia}</strong> con {max.usos} reserva{max.usos !== 1 ? 's' : ''}.
+                </p>
+              );
+            })()}
 
             <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "24px", gap: "10px" }}>
               <button
@@ -1277,7 +1067,7 @@ export default function Dashboard({ onLogout }) {
                 onMouseOver={(e) => e.target.style.background = "rgba(34, 197, 94, 0.3)"}
                 onMouseOut={(e) => e.target.style.background = "rgba(34, 197, 94, 0.15)"}
               >
-                📊 Exportar Excel
+                Exportar Excel
               </button>
               <button
                 style={{
@@ -1294,7 +1084,7 @@ export default function Dashboard({ onLogout }) {
                 onMouseOver={(e) => e.target.style.background = "rgba(239, 68, 68, 0.3)"}
                 onMouseOut={(e) => e.target.style.background = "rgba(239, 68, 68, 0.15)"}
               >
-                📄 Exportar PDF
+                Exportar PDF
               </button>
               <button
                 style={{
@@ -1318,7 +1108,7 @@ export default function Dashboard({ onLogout }) {
       {showMisEquiposModal && (
         <div className="modal-overlay">
           <div className="modal-content login-glass-card" style={{ maxWidth: "550px" }}>
-            <h2>👥 Mis Equipos</h2>
+            <h2>Mis Equipos</h2>
             <p style={{ color: "var(--text-muted)", marginBottom: "20px" }}>
               Equipos en los que participas
             </p>
@@ -1348,23 +1138,7 @@ export default function Dashboard({ onLogout }) {
                       </div>
                     </div>
                     <div style={{ display: "flex", gap: "6px" }}>
-                      <button 
-                        onClick={() => abrirEditarEquipo(eq)}
-                        style={{
-                          background: "rgba(59, 130, 246, 0.15)",
-                          color: "#60a5fa",
-                          border: "1px solid rgba(59, 130, 246, 0.3)",
-                          padding: "6px 10px",
-                          borderRadius: "6px",
-                          cursor: "pointer",
-                          fontSize: "12px",
-                          transition: "all 0.2s"
-                        }}
-                        onMouseOver={(e) => e.target.style.background = "rgba(59, 130, 246, 0.3)"}
-                        onMouseOut={(e) => e.target.style.background = "rgba(59, 130, 246, 0.15)"}
-                      >
-                        ✏️ Editar
-                      </button>
+
                       <button 
                         onClick={() => handleEliminarEquipo(eq.idEquipo)}
                         style={{
@@ -1380,7 +1154,7 @@ export default function Dashboard({ onLogout }) {
                         onMouseOver={(e) => e.target.style.background = "rgba(239, 68, 68, 0.3)"}
                         onMouseOut={(e) => e.target.style.background = "rgba(239, 68, 68, 0.15)"}
                       >
-                        🗑 Eliminar
+                        Eliminar
                       </button>
                     </div>
                   </li>
@@ -1407,108 +1181,107 @@ export default function Dashboard({ onLogout }) {
         </div>
       )}
 
-      {/* MODAL EDITAR EQUIPO */}
-      {showEditEquipoModal && (
-        <div className="modal-overlay">
-          <div className="modal-content login-glass-card" style={{ maxWidth: "500px" }}>
-            <h2>✏️ Editar Equipo</h2>
-
-            <div style={{ marginBottom: "16px" }}>
-              <label style={{ display: "block", marginBottom: "8px", color: "#cbd5e1", fontSize: "14px" }}>
-                Nombre del Equipo:
-              </label>
-              <input
-                type="text"
-                value={editNombreEquipo}
-                onChange={(e) => setEditNombreEquipo(e.target.value)}
-                placeholder="Ej. Los Hackers"
-                style={{
-                  width: "100%",
-                  padding: "10px",
-                  borderRadius: "6px",
-                  border: "1px solid rgba(255,255,255,0.2)",
-                  background: "rgba(0,0,0,0.3)",
-                  color: "white",
-                }}
-              />
-            </div>
-
-            <div style={{ marginBottom: "16px" }}>
-              <label style={{ display: "block", marginBottom: "8px", color: "#cbd5e1", fontSize: "14px" }}>
-                Miembros (selecciona hasta 3):
-              </label>
-              <div style={{ maxHeight: "200px", overflowY: "auto", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px", padding: "8px" }}>
-                {alumnosDb.map((alumno) => (
-                  <label
-                    key={alumno.noControl}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px",
-                      padding: "6px",
-                      color: "white",
-                      cursor: "pointer",
-                      borderRadius: "4px",
-                      background: editMiembros.includes(alumno.noControl) ? "rgba(59,130,246,0.15)" : "transparent",
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={editMiembros.includes(alumno.noControl)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          if (editMiembros.length < 3) {
-                            setEditMiembros([...editMiembros, alumno.noControl]);
-                          }
-                        } else {
-                          setEditMiembros(editMiembros.filter(m => m !== alumno.noControl));
-                        }
-                      }}
-                    />
-                    {alumno.nombre} ({alumno.noControl})
-                  </label>
-                ))}
-              </div>
-              <p style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "6px" }}>
-                Seleccionados: {editMiembros.join(", ") || "Ninguno"}
+      {/* MODAL NOTIFICACIÓN (reemplaza alert nativo) */}
+      {notif.show && (() => {
+        const cfg = {
+          success: { icon: "✅", title: "Éxito",      accent: "34, 197, 94",  titleColor: "#86efac" },
+          error:   { icon: "❌", title: "Error",       accent: "239, 68, 68",  titleColor: "#fca5a5" },
+          info:    { icon: "ℹ️", title: "Información", accent: "59, 130, 246", titleColor: "#93c5fd" },
+        }[notif.type] || { icon: "ℹ️", title: "Información", accent: "59, 130, 246", titleColor: "#93c5fd" };
+        return (
+          <div className="modal-overlay" style={{ zIndex: 9999 }}>
+            <div className="modal-content login-glass-card" style={{
+              maxWidth: "420px",
+              textAlign: "center",
+              border: `1px solid rgba(${cfg.accent}, 0.35)`,
+              boxShadow: `0 0 30px rgba(${cfg.accent}, 0.15)`
+            }}>
+              
+              <h2 style={{ color: cfg.titleColor, marginBottom: "12px", fontSize: "20px" }}>{cfg.title}</h2>
+              <p style={{ color: "#cbd5e1", marginBottom: "28px", fontSize: "15px", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
+                {notif.message.replace(/^[✅❌ℹ️]\s*/, "")}
               </p>
+              <button
+                style={{
+                  background: `rgba(${cfg.accent}, 0.2)`,
+                  color: cfg.titleColor,
+                  border: `1px solid rgba(${cfg.accent}, 0.4)`,
+                  padding: "10px 32px",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  fontWeight: "bold",
+                  fontSize: "14px",
+                  transition: "all 0.2s"
+                }}
+                onClick={hideAlert}
+                onMouseOver={(e) => e.currentTarget.style.background = `rgba(${cfg.accent}, 0.4)`}
+                onMouseOut={(e) => e.currentTarget.style.background = `rgba(${cfg.accent}, 0.2)`}
+              >
+                Aceptar
+              </button>
             </div>
+          </div>
+        );
+      })()}
 
-            <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
+      {/* MODAL CONFIRMACIÓN (reemplaza window.confirm nativo) */}
+      {confirmModal.show && (
+        <div className="modal-overlay" style={{ zIndex: 9999 }}>
+          <div className="modal-content login-glass-card" style={{
+            maxWidth: "420px",
+            textAlign: "center",
+            border: "1px solid rgba(234, 179, 8, 0.35)",
+            boxShadow: "0 0 30px rgba(234, 179, 8, 0.12)"
+          }}>
+            
+            <h2 style={{ color: "#fde68a", marginBottom: "12px", fontSize: "20px" }}>Confirmar acción</h2>
+            <p style={{ color: "#cbd5e1", marginBottom: "28px", fontSize: "15px", lineHeight: 1.6 }}>
+              {confirmModal.message}
+            </p>
+            <div style={{ display: "flex", gap: "12px", justifyContent: "center" }}>
               <button
                 style={{
                   background: "transparent",
-                  color: "#cbd5e1",
+                  color: "#94a3b8",
                   border: "1px solid rgba(255,255,255,0.2)",
-                  padding: "10px 20px",
+                  padding: "10px 28px",
                   borderRadius: "8px",
                   cursor: "pointer",
+                  fontWeight: "bold",
+                  fontSize: "14px",
+                  transition: "all 0.2s"
                 }}
-                onClick={() => setShowEditEquipoModal(false)}
+                onClick={hideConfirm}
+                onMouseOver={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.07)"}
+                onMouseOut={(e) => e.currentTarget.style.background = "transparent"}
               >
                 Cancelar
               </button>
               <button
                 style={{
-                  background: "rgba(59, 130, 246, 0.2)",
-                  color: "#60a5fa",
-                  border: "1px solid rgba(59, 130, 246, 0.4)",
-                  padding: "10px 20px",
+                  background: "rgba(239, 68, 68, 0.2)",
+                  color: "#fca5a5",
+                  border: "1px solid rgba(239, 68, 68, 0.4)",
+                  padding: "10px 28px",
                   borderRadius: "8px",
                   cursor: "pointer",
                   fontWeight: "bold",
+                  fontSize: "14px",
                   transition: "all 0.2s"
                 }}
-                onClick={handleEditarEquipo}
-                onMouseOver={(e) => e.target.style.background = "rgba(59, 130, 246, 0.4)"}
-                onMouseOut={(e) => e.target.style.background = "rgba(59, 130, 246, 0.2)"}
+                onClick={() => { confirmModal.onConfirm && confirmModal.onConfirm(); hideConfirm(); }}
+                onMouseOver={(e) => e.currentTarget.style.background = "rgba(239, 68, 68, 0.4)"}
+                onMouseOut={(e) => e.currentTarget.style.background = "rgba(239, 68, 68, 0.2)"}
               >
-                Guardar Cambios
+                Confirmar
               </button>
             </div>
           </div>
         </div>
       )}
+
+
+
     </div>
   );
 }

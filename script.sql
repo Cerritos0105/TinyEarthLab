@@ -56,7 +56,8 @@ INSERT INTO materias (clave, nombre) VALUES
 ('MAT02', 'Tierras II'),
 ('MAT03', 'Tierras III'),
 ('MAT04', 'Tierras IV'),
-('MAT05', 'Principios electricos');
+('MAT05', 'Principios electricos'),
+('LIBRE', 'Clase Libre');
 
 -- 5. LABORATORIOS
 create table laboratorios (
@@ -102,6 +103,9 @@ INSERT INTO clases (idMateria, idDocente, idLaboratorio, hora) VALUES
 ('MAT01', 'DS001', 1, '08:00:00'),
 ('MAT02', 'DS001', 1, '09:00:00'),
 ('MAT05', 'DA001', 2, '10:00:00');
+
+INSERT INTO clases (idClase, idMateria, idDocente, idLaboratorio, hora) VALUES
+(999, 'LIBRE', 'DA001', 1, '00:00:00');
 
 -- 8. INSCRIPCIONES
 create table inscripciones (
