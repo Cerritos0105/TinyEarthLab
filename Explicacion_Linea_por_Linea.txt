@@ -1,0 +1,106 @@
+=============================================================================
+                  EXPLICACIÓN TÉCNICA LÍNEA POR LÍNEA - TINY EARTH LAB
+=============================================================================
+
+A continuación se detalla el código haciendo referencia exacta a los métodos, nombres de archivos y números de línea aproximados (basados en la versión final de tu proyecto). 
+
+*****************************************************************************
+ARCHIVO 1: src/Dashboard.jsx (Frontend)
+*****************************************************************************
+
+[Líneas 1-20] - IMPORTS
+- Línea 1-5: `import React, { useState, useEffect, useRef } from 'react';` Trae los Hooks principales de React.
+- Línea 6-10: Importaciones de `recharts` (BarChart, XAxis, YAxis, etc.) para dibujar las estadísticas.
+- Línea 12: `import './Dashboard.css';` Carga la hoja de estilos estética (el glassmorphism).
+
+[Líneas 22-85] - DEFINICIÓN DEL COMPONENTE Y ESTADOS GLOBALES (Hooks)
+- Línea 22: `export default function Dashboard({ onLogout }) {` Define la función principal que renderiza todo.
+- Línea 24: `const usuario = JSON.parse(localStorage.getItem("usuario") || "{}");` Lee del disco duro los datos del alumno que inició sesión.
+- Líneas 30-45: Variables de estado para el Laboratorio (`laboratorios`, `selectedLab`, `laboratorioActual`). 
+- Líneas 47-51: Variables para el calendario (`reservas`, `diasBloqueados`, `currentWeekStart`).
+- Líneas 68-75: Variables para controlar modales (`showCreateTeamModal`, `showReservaModal`, etc.). Estos son booleanos (true/false) que dictan si se dibuja o no una ventana en pantalla.
+- Líneas 80-85: `notif` y `confirmModal`. Sustituyen a las alertas de Windows. Guardan un objeto con { show: true, type, message }.
+
+[Líneas 87-128] - EFECTOS DE CICLO DE VIDA (useEffect)
+- Línea 87: `useEffect(() => { ... }, []);` Al tener corchetes vacíos, este código SOLO se ejecuta la primera vez que entras a la pantalla. Adentro llama a los métodos `cargarLaboratorios()` y `obtenerClasesAlumno()`.
+- Línea 116: `useEffect(() => { ... }, [selectedLab, currentWeekStart]);` Este código se activa mágicamente cada vez que el usuario elige un laboratorio distinto en el select, o cuando avanza/retrocede de semana. Adentro llama a `obtenerReservas()`.
+
+[Líneas 130-360] - FUNCIONES DE CONEXIÓN CON BACKEND (GET y POST)
+- Línea 130 (`cargarLaboratorios`): Hace un `fetch` a `/api/laboratorios/todos`. Recibe un JSON (ej. `d.laboratorios`) y usa `setLaboratorios()` para llenar el estado de React.
+- Línea 145 (`obtenerReservas`): Ejecuta un GET a `/api/reservas/laboratorio/{selectedLab}`. Envía por parámetro de URL `?noControl={usuario.noControl}`. Esto es para que el backend sepa quién pregunta. Al recibir la respuesta, guarda los datos con `setReservas(d.reservas)`.
+- Línea 210 (`handleCrearEquipo`): Se detona al presionar el botón "Crear Equipo".
+  1. Valida que el nombre no esté vacío.
+  2. Crea un objeto con los miembros seleccionados más el creador actual.
+  3. Hace un `fetch` POST a `/api/equipos/crear` enviando el `nombre`, `idClase` y los `miembros` en formato JSON.
+  4. Si el backend responde ok (`if (d.ok)`), ejecuta `setShowCreateTeamModal(false)` (cierra la ventana) y `showAlert("success", ...)` para mostrar la palomita verde.
+
+[Líneas 365-450] - LÓGICA DE RESERVAS Y GESTIÓN
+- Línea 365 (`handleCrearReserva`): Toma `reservaSlot.fecha`, `reservaSlot.hora` y el `equipoReserva` (el ID del equipo que el usuario eligió en el select). Manda un POST a `/api/reservas/crear`. Si es exitoso, cierra el modal de reserva e invoca `obtenerReservas()` para que la pantalla parpadee y se pinte la celda de color verde con los nuevos datos sin recargar la página.
+- Línea 460 (`handleCancelarReservaIndividual`): Pide confirmación invocando `showConfirm(...)`. Si aceptas, hace un POST a `/api/reservas/cancelar/{id}`. Al volver, invoca `obtenerReservas()` para quitar el color verde/azul.
+- Línea 485 (`handleCancelarHora`): Exclusivo maestros. Apunta a `/api/reservas/cancelar-hora` enviando la fecha y hora. Limpia todos los registros en esa hora de un plumazo.
+
+[Líneas 550-890] - RENDERIZADO VISUAL DEL CALENDARIO (JSX)
+- Línea 550: `<div className="calendar-grid">` Inicia la malla CSS Grid.
+- Línea 555: `currentWeekDays.map(date => ...)` Un ciclo que dibuja las columnas de Lunes a Viernes.
+- Línea 600: `HORAS.map(hora => ...)` Un ciclo anidado que dibuja las filas de 8:00 a 18:00.
+- Línea 620-630 (`const esMiReserva = ...`): Este bloque matemático toma el arreglo global `reservas` y usa `.some()` para verificar si en ese cruce exacto de fecha+hora existe un registro con la bandera `esMia: true` (bandera que puso el backend).
+- Línea 644 (`style={{ ... }}`): Aquí React decide los colores en tiempo real.
+  - Toma `isBlocked`, `horarioPasado`, `esMiReserva` y `reservadas`.
+  - Si `esMiReserva` es true, pinta backgroundColor de `rgba(34, 197, 94, 0.2)` (Verde).
+  - Si `reservadas > 0` (y no es tuya), pinta `rgba(59, 130, 246, 0.15)` (Azul).
+  - Si `isBlocked` (día bloqueado por profe), pinta Rojo.
+
+[Líneas 890-1200] - MODALES
+- A lo largo de esta sección hay `{showCreateTeamModal && (<div className="modal-overlay">...`
+- Esto significa que si la variable es `true`, todo el código HTML de adentro se dibuja.
+- Línea 1000: Modal Estadísticas. Tiene `<BarChart data={statsData}>`. Recharts lee este arreglo para generar las barras azules (usos por hora). Y `<BarChart data={statsDiaData}>` para las barras moradas (usos por día de la semana).
+
+*****************************************************************************
+ARCHIVO 2: backend/src/controllers/reservasController.js
+*****************************************************************************
+Este es el cerebro del servidor donde ocurre el SQL.
+
+[Líneas 10-60] - `reservasLaboratorio(req, res)`
+- Línea 11: Extrae `idLaboratorio` de `req.params` (la URL) y `noControl` de `req.query`.
+- Línea 15: `const [rows] = await pool.query(...)`. Usa el conector MySQL.
+- Línea 25: `(SELECT COUNT(*) FROM alumno_equipo ae WHERE ae.idEquipo = r.idEquipo AND ae.noControl = ?) > 0 AS esMia`. 
+  Esta línea mágica hace que la Base de Datos revise la tabla pivote. Si encuentra que tú (`noControl`) estás vinculado a ese equipo, devuelve un "1" en la columna virtual `esMia`.
+
+[Líneas 63-145] - `crearReserva(req, res)`
+- Línea 65: `const connection = await pool.getConnection();` Toma el control absoluto de un hilo de BD.
+- Línea 66: `await connection.beginTransaction();` Inicia la transacción. Si algo falla más abajo, los datos no se guardan a medias.
+- Línea 91: El servidor bloquea el abuso buscando si tu equipo ya tiene una reserva en la misma hora. Si es así, retorna `status(400)`.
+- Línea 98: `SELECT e.idEstacion FROM estaciones e WHERE idEstacion NOT IN (...)`. 
+  Línea crucial. Filtra las estaciones que NO aparezcan como 'confirmada' en ese horario. Toma la primera que encuentra.
+- Línea 108: `INSERT INTO reservas (...) ON DUPLICATE KEY UPDATE idEquipo = VALUES(idEquipo), estado = 'confirmada'`.
+  Línea maestra. La Base de Datos tiene una regla que prohíbe clonar "Misma Estación, Fecha y Hora". Si antes otro alumno apartó esa máquina y luego canceló, el registro sigue ahí. El ON DUPLICATE KEY le dice a la BD: "Si chocas con un registro cancelado previo, simplemente bórralo y pon mis nuevos datos encima, volviéndolo 'confirmada'". 
+- Línea 119: `await connection.commit();` Termina y guarda los cambios en la BD. 
+
+[Líneas 300-350] - `obtenerEstadisticasLab(req, res)`
+- Línea 306: Primer `pool.query` agrupando por `GROUP BY r.hora`. Cuenta (COUNT) cuantas veces se usó cada hora históricamente.
+- Línea 316: Segundo `pool.query` agrupando por `GROUP BY DAYOFWEEK(r.fecha)`. La función DAYOFWEEK de MySQL convierte una fecha ("2026-05-27") en un número del 1 al 7. Luego el backend convierte ese número a Lunes, Martes, etc.
+- Línea 335: Regresa ambas variables combinadas mediante un `res.json({ estadisticas, estadisticasPorDia })`.
+
+*****************************************************************************
+ARCHIVO 3: backend/src/controllers/equiposController.js
+*****************************************************************************
+[Líneas 10-50] - `crearEquipo(req, res)`
+- Línea 15: Inicia transacción MySQL.
+- Línea 17: `INSERT INTO equipos (nombre, idClase) VALUES (?, ?)`.
+- Línea 21: Recupera el `result.insertId` (Ej. la BD le asignó el ID "15" al equipo "Los Hackers").
+- Línea 26: Ejecuta un ciclo `for (const noControl of miembros)` para cada alumno.
+- Línea 27: Adentro del ciclo, ejecuta `INSERT INTO alumno_equipo (noControl, idEquipo)` vinculando a tus amigos al equipo "15".
+- Línea 32: Hace `.commit()`.
+
+*****************************************************************************
+ARCHIVO 4: backend/src/controllers/authController.js
+*****************************************************************************
+[Líneas 5-40] - `login(req, res)`
+- Línea 7: Recibe `noControl` y `password` desde el JSON que mandó el Frontend.
+- Línea 13: `SELECT * FROM usuarios WHERE noControl = ? AND password = ?`. Busca exactamente ese match.
+- Línea 15: Si `rows.length === 0`, retorna un error 401 "Credenciales inválidas".
+- Línea 23: Si tuvo éxito, extrae `nombre`, `apellidos`, `tipo`, y lo manda en la respuesta `res.json({ ok: true, usuario: ... })`.
+- Este JSON viaja al Frontend y es lo que el archivo App.jsx guarda en el `localStorage` en la Línea 35 para recordar tu sesión.
+
+Fin del Documento.
+=============================================================================
