@@ -83,6 +83,7 @@ export default function Dashboard({ onLogout }) {
   const [statsData, setStatsData] = useState([]);
   const [statsDiaData, setStatsDiaData] = useState([]);
   const chartRef = useRef(null);
+  const chartDiaRef = useRef(null);
 
   // Estados para Mis Equipos
   const [showMisEquiposModal, setShowMisEquiposModal] = useState(false);
@@ -282,23 +283,62 @@ export default function Dashboard({ onLogout }) {
   // EXPORTAR
   // =========================================
   const exportarExcel = () => {
-    const ws = XLSX.utils.json_to_sheet(statsData.map((d) => ({ Hora: d.hora, "Reservas Confirmadas": d.usos })));
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Estadísticas");
+    // Hoja 1: Por Hora
+    const wsHora = XLSX.utils.json_to_sheet(statsData.map((d) => ({ Hora: d.hora, "Reservas Confirmadas": d.usos })));
+    XLSX.utils.book_append_sheet(wb, wsHora, "Por Hora");
+    // Hoja 2: Por Día
+    if (statsDiaData.length > 0) {
+      const wsDia = XLSX.utils.json_to_sheet(statsDiaData.map((d) => ({ Día: d.dia, "Reservas Confirmadas": d.usos })));
+      XLSX.utils.book_append_sheet(wb, wsDia, "Por Día");
+    }
     XLSX.writeFile(wb, `estadisticas_${laboratorioActual?.nombre || "lab"}.xlsx`);
   };
   const exportarPDF = async () => {
     if (!chartRef.current) return;
     try {
-      const canvas = await html2canvas(chartRef.current, { backgroundColor: "#0f172a" });
-      const imgData = canvas.toDataURL("image/png");
       const pdf = new jsPDF("landscape", "mm", "a4");
       const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      pdf.setFillColor(15, 23, 42); pdf.rect(0, 0, pdfWidth, pdf.internal.pageSize.getHeight(), "F");
-      pdf.setTextColor(255, 255, 255); pdf.setFontSize(18);
+      const pageHeight = pdf.internal.pageSize.getHeight();
+
+      // Fondo oscuro página 1
+      pdf.setFillColor(15, 23, 42);
+      pdf.rect(0, 0, pdfWidth, pageHeight, "F");
+      pdf.setTextColor(255, 255, 255);
+      pdf.setFontSize(18);
       pdf.text(`Estadísticas - ${laboratorioActual?.nombre || "Laboratorio"}`, 14, 20);
-      pdf.addImage(imgData, "PNG", 14, 30, pdfWidth - 28, pdfHeight - 10);
+
+      // Gráfica 1: Por Hora
+      pdf.setFontSize(13);
+      pdf.text("Por Hora del Día", 14, 32);
+      const canvas1 = await html2canvas(chartRef.current, { backgroundColor: "#0f172a" });
+      const img1 = canvas1.toDataURL("image/png");
+      const h1 = (canvas1.height * (pdfWidth - 28)) / canvas1.width;
+      pdf.addImage(img1, "PNG", 14, 36, pdfWidth - 28, h1);
+
+      // Gráfica 2: Por Día (si hay datos)
+      if (chartDiaRef.current && statsDiaData.length > 0) {
+        const canvas2 = await html2canvas(chartDiaRef.current, { backgroundColor: "#0f172a" });
+        const img2 = canvas2.toDataURL("image/png");
+        const h2 = (canvas2.height * (pdfWidth - 28)) / canvas2.width;
+        const startY = 36 + h1 + 12;
+
+        // Si no cabe en la misma página, agregar nueva
+        if (startY + h2 + 10 > pageHeight) {
+          pdf.addPage();
+          pdf.setFillColor(15, 23, 42);
+          pdf.rect(0, 0, pdfWidth, pageHeight, "F");
+          pdf.setTextColor(255, 255, 255);
+          pdf.setFontSize(13);
+          pdf.text("Por Día de la Semana", 14, 20);
+          pdf.addImage(img2, "PNG", 14, 26, pdfWidth - 28, h2);
+        } else {
+          pdf.setFontSize(13);
+          pdf.text("Por Día de la Semana", 14, startY);
+          pdf.addImage(img2, "PNG", 14, startY + 6, pdfWidth - 28, h2);
+        }
+      }
+
       pdf.save(`estadisticas_${laboratorioActual?.nombre || "lab"}.pdf`);
     } catch { showAlert("Error al exportar PDF", "error"); }
   };
@@ -1019,7 +1059,7 @@ export default function Dashboard({ onLogout }) {
 
             {/* Gráfica por día */}
             <p style={{ color: "#94a3b8", fontSize: "13px", marginBottom: "8px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px" }}>Por Día de la Semana</p>
-            <div style={{ width: '100%', height: 240, background: 'rgba(15,23,42,0.7)', borderRadius: '10px', padding: '10px', marginBottom: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+            <div ref={chartDiaRef} style={{ width: '100%', height: 240, background: 'rgba(15,23,42,0.7)', borderRadius: '10px', padding: '10px', marginBottom: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
               {statsDiaData.length === 0 ? (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#64748b', fontSize: '14px' }}>Sin datos suficientes</div>
               ) : (
