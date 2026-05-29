@@ -82,6 +82,9 @@ export default function Dashboard({ onLogout }) {
   const [showStatsModal, setShowStatsModal] = useState(false);
   const [statsData, setStatsData] = useState([]);
   const [statsDiaData, setStatsDiaData] = useState([]);
+  const [tablaData, setTablaData] = useState([]);
+  const [fechaInicio, setFechaInicio] = useState("");
+  const [fechaFin, setFechaFin] = useState("");
   const chartRef = useRef(null);
   const chartDiaRef = useRef(null);
 
@@ -284,9 +287,14 @@ export default function Dashboard({ onLogout }) {
   // =========================================
   const exportarExcel = () => {
     const wb = XLSX.utils.book_new();
-    // Hoja 1: Por Hora
-    const wsHora = XLSX.utils.json_to_sheet(statsData.map((d) => ({ Hora: d.hora, "Reservas Confirmadas": d.usos })));
-    XLSX.utils.book_append_sheet(wb, wsHora, "Por Hora");
+    // Hoja 1: Tabla de Reservas
+    const wsTabla = XLSX.utils.json_to_sheet(tablaData.map((d) => ({
+      Fecha: new Date(d.fecha).toLocaleDateString('es-ES'),
+      Hora: d.hora.substring(0,5),
+      Equipo: d.equipo,
+      Estación: d.noEstacion
+    })));
+    XLSX.utils.book_append_sheet(wb, wsTabla, "Reservas Confirmadas");
     // Hoja 2: Por Día
     if (statsDiaData.length > 0) {
       const wsDia = XLSX.utils.json_to_sheet(statsDiaData.map((d) => ({ Día: d.dia, "Reservas Confirmadas": d.usos })));
@@ -308,9 +316,9 @@ export default function Dashboard({ onLogout }) {
       pdf.setFontSize(18);
       pdf.text(`Estadísticas - ${laboratorioActual?.nombre || "Laboratorio"}`, 14, 20);
 
-      // Gráfica 1: Por Hora
+      // Gráfica 1: Tabla (anteriormente Por Hora)
       pdf.setFontSize(13);
-      pdf.text("Por Hora del Día", 14, 32);
+      pdf.text("Reporte de Reservas", 14, 32);
       const canvas1 = await html2canvas(chartRef.current, { backgroundColor: "#0f172a" });
       const img1 = canvas1.toDataURL("image/png");
       const h1 = (canvas1.height * (pdfWidth - 28)) / canvas1.width;
@@ -356,9 +364,18 @@ export default function Dashboard({ onLogout }) {
   };
   const obtenerEstadisticas = async (idLab) => {
     try {
-      const r = await fetch(`http://localhost:3000/api/reservas/estadisticas/laboratorio/${idLab}`);
+      let url = `http://localhost:3000/api/reservas/estadisticas/laboratorio/${idLab}`;
+      if (fechaInicio && fechaFin) {
+         url += `?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}`;
+      }
+      const r = await fetch(url);
       const d = await r.json();
-      if (d.ok) { setStatsData(d.estadisticas); setStatsDiaData(d.estadisticasPorDia || []); setShowStatsModal(true); }
+      if (d.ok) { 
+        setStatsData(d.estadisticas); 
+        setStatsDiaData(d.estadisticasPorDia || []); 
+        setTablaData(d.tabla || []);
+        setShowStatsModal(true); 
+      }
     } catch (e) { console.error(e); }
   };
 
@@ -1041,20 +1058,52 @@ export default function Dashboard({ onLogout }) {
               {laboratorioActual?.nombre} — Reservas confirmadas históricas
             </p>
 
-            {/* Gráfica por hora */}
-            <p style={{ color: "#94a3b8", fontSize: "13px", marginBottom: "8px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px" }}>Por Hora del Día</p>
-            <div ref={chartRef} style={{ width: '100%', height: 240, background: 'rgba(15,23,42,0.7)', borderRadius: '10px', padding: '10px', marginBottom: '24px', border: '1px solid rgba(255,255,255,0.05)' }}>
-              <ResponsiveContainer>
-                <BarChart data={statsData} margin={{ top: 10, right: 20, left: 0, bottom: 5 }}>
-                  <XAxis dataKey="hora" stroke="#cbd5e1" tick={{ fontSize: 12 }} />
-                  <YAxis stroke="#cbd5e1" allowDecimals={false} tick={{ fontSize: 12 }} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.95)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', color: '#fff' }}
-                    itemStyle={{ color: '#60a5fa' }}
-                  />
-                  <Bar dataKey="usos" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Reservas" />
-                </BarChart>
-              </ResponsiveContainer>
+            <div style={{ display: "flex", gap: "15px", marginBottom: "20px" }}>
+              <div>
+                <label style={{ display: "block", color: "#cbd5e1", fontSize: "14px", marginBottom: "5px" }}>Fecha Inicio:</label>
+                <input type="date" value={fechaInicio} onChange={(e) => setFechaInicio(e.target.value)} style={{ padding: "8px", borderRadius: "6px", border: "1px solid rgba(255,255,255,0.2)", background: "rgba(0,0,0,0.3)", color: "white" }} />
+              </div>
+              <div>
+                <label style={{ display: "block", color: "#cbd5e1", fontSize: "14px", marginBottom: "5px" }}>Fecha Fin:</label>
+                <input type="date" value={fechaFin} onChange={(e) => setFechaFin(e.target.value)} style={{ padding: "8px", borderRadius: "6px", border: "1px solid rgba(255,255,255,0.2)", background: "rgba(0,0,0,0.3)", color: "white" }} />
+              </div>
+              <div style={{ display: "flex", alignItems: "flex-end" }}>
+                <button 
+                  onClick={() => obtenerEstadisticas(selectedLab)}
+                  style={{ background: "#3b82f6", color: "white", padding: "8px 16px", borderRadius: "6px", border: "none", cursor: "pointer" }}
+                >
+                  Filtrar
+                </button>
+              </div>
+            </div>
+
+            {/* Tabla de reporte en lugar de Gráfica por hora */}
+            <p style={{ color: "#94a3b8", fontSize: "13px", marginBottom: "8px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px" }}>Reporte de Reservas</p>
+            <div ref={chartRef} style={{ width: '100%', maxHeight: '240px', overflowY: 'auto', background: 'rgba(15,23,42,0.7)', borderRadius: '10px', padding: '10px', marginBottom: '24px', border: '1px solid rgba(255,255,255,0.05)' }}>
+              {tablaData.length === 0 ? (
+                <div style={{ color: '#64748b', fontSize: '14px', textAlign: 'center', marginTop: '20px' }}>No hay reservas confirmadas para este filtro.</div>
+              ) : (
+                <table style={{ width: '100%', borderCollapse: 'collapse', color: 'white', fontSize: '14px' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.2)' }}>
+                      <th style={{ padding: '8px', textAlign: 'left' }}>Fecha</th>
+                      <th style={{ padding: '8px', textAlign: 'left' }}>Hora</th>
+                      <th style={{ padding: '8px', textAlign: 'left' }}>Equipo</th>
+                      <th style={{ padding: '8px', textAlign: 'left' }}>Estación</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tablaData.map((row, index) => (
+                      <tr key={index} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                        <td style={{ padding: '8px' }}>{new Date(row.fecha).toLocaleDateString('es-ES')}</td>
+                        <td style={{ padding: '8px' }}>{row.hora.substring(0,5)}</td>
+                        <td style={{ padding: '8px' }}>{row.equipo}</td>
+                        <td style={{ padding: '8px' }}>{row.noEstacion}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
 
             {/* Gráfica por día */}
@@ -1082,14 +1131,6 @@ export default function Dashboard({ onLogout }) {
                 </ResponsiveContainer>
               )}
             </div>
-            {statsDiaData.length > 0 && (() => {
-              const max = statsDiaData.reduce((a, b) => a.usos > b.usos ? a : b);
-              return (
-                <p style={{ color: '#a78bfa', fontSize: '13px', marginBottom: '20px', textAlign: 'center' }}>
-                  El día más concurrido es <strong style={{ color: '#c4b5fd' }}>{max.dia}</strong> con {max.usos} reserva{max.usos !== 1 ? 's' : ''}.
-                </p>
-              );
-            })()}
 
             <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "24px", gap: "10px" }}>
               <button

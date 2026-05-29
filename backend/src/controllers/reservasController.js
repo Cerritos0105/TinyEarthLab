@@ -302,45 +302,68 @@ const cancelarHoraReserva = async (req, res) => {
 const obtenerEstadisticasLab = async (req, res) => {
     try {
         const { idLaboratorio } = req.params;
+        const { fechaInicio, fechaFin } = req.query;
+
+        let fechaFilter = '';
+        let queryParams = [idLaboratorio];
+
+        if (fechaInicio && fechaFin) {
+            fechaFilter = ' AND r.fecha BETWEEN ? AND ?';
+            queryParams.push(fechaInicio, fechaFin);
+        }
 
         // Stats por hora
         const [rowsHora] = await pool.query(
             `SELECT r.hora, COUNT(*) as usos
              FROM reservas r
              INNER JOIN estaciones e ON r.idEstacion = e.idEstacion
-             WHERE e.idLaboratorio = ? AND r.estado = 'confirmada'
+             WHERE e.idLaboratorio = ? AND r.estado = 'confirmada' ${fechaFilter}
              GROUP BY r.hora
              ORDER BY r.hora ASC`,
-            [idLaboratorio]
+            queryParams
         );
 
-        // Stats por día de la semana (1=Domingo, 2=Lunes ... 7=Sábado en MySQL)
+        // Stats por día específico (Fechas)
         const [rowsDia] = await pool.query(
-            `SELECT DAYOFWEEK(r.fecha) as diaSemana, COUNT(*) as usos
+            `SELECT r.fecha as fechaDia, COUNT(*) as usos
              FROM reservas r
              INNER JOIN estaciones e ON r.idEstacion = e.idEstacion
-             WHERE e.idLaboratorio = ? AND r.estado = 'confirmada'
-             GROUP BY DAYOFWEEK(r.fecha)
-             ORDER BY DAYOFWEEK(r.fecha) ASC`,
-            [idLaboratorio]
+             WHERE e.idLaboratorio = ? AND r.estado = 'confirmada' ${fechaFilter}
+             GROUP BY r.fecha
+             ORDER BY r.fecha ASC`,
+            queryParams
         );
 
-        const nombresDia = { 2: 'Lunes', 3: 'Martes', 4: 'Miércoles', 5: 'Jueves', 6: 'Viernes', 7: 'Sábado', 1: 'Domingo' };
+        // Datos para la tabla (en lugar de la gráfica de horas)
+        const [rowsTabla] = await pool.query(
+            `SELECT r.fecha, r.hora, eq.nombre as equipo, e.noEstacion
+             FROM reservas r
+             INNER JOIN estaciones e ON r.idEstacion = e.idEstacion
+             LEFT JOIN equipos eq ON r.idEquipo = eq.idEquipo
+             WHERE e.idLaboratorio = ? AND r.estado = 'confirmada' ${fechaFilter}
+             ORDER BY r.fecha ASC, r.hora ASC`,
+            queryParams
+        );
 
         const statsPorHora = rowsHora.map(r => ({
             hora: r.hora.substring(0, 5),
             usos: r.usos
         }));
 
-        const statsPorDia = rowsDia.map(r => ({
-            dia: nombresDia[r.diaSemana] || `Día ${r.diaSemana}`,
-            usos: r.usos
-        }));
+        const statsPorDia = rowsDia.map(r => {
+            const dateObj = new Date(r.fechaDia);
+            const diaStr = dateObj.toLocaleDateString('es-ES', { day: 'numeric', month: 'long' });
+            return {
+                dia: diaStr,
+                usos: r.usos
+            };
+        });
 
         res.json({
             ok: true,
             estadisticas: statsPorHora,
-            estadisticasPorDia: statsPorDia
+            estadisticasPorDia: statsPorDia,
+            tabla: rowsTabla
         });
 
     } catch (error) {
