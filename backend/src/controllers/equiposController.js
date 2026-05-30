@@ -43,11 +43,6 @@ const crearEquipo = async (req, res) => {
   } catch (error) {
     await connection.rollback();
     console.error("Error al crear equipo:", error);
-    
-    if (error.code === 'ER_DUP_ENTRY') {
-      return res.status(400).json({ error: "Uno de los alumnos seleccionados ya pertenece a un equipo en esta misma clase." });
-    }
-
     res
       .status(500)
       .json({ error: "Error al crear equipo", detalles: error.message });
@@ -58,126 +53,63 @@ const crearEquipo = async (req, res) => {
 
 const getEquiposAlumno = async (req, res) => {
   const { noControl, idClase } = req.body;
-
+  console.log("[getEquiposAlumno] noControl recibido:", noControl, "| idClase:", idClase);
   if (!noControl) {
-    return res.status(400).json({ error: 'Debe proporcionar el número de control.' });
+    return res.status(400).json({ ok: false, error: "Falta noControl" });
   }
-
   try {
-    let classId = null;
-    if (idClase !== undefined && idClase !== null && idClase !== 'Ninguna' && idClase !== 'null' && idClase !== '') {
-      const parsed = parseInt(idClase, 10);
-      if (!isNaN(parsed)) {
-        classId = parsed;
-      }
-    }
-
-    let sql = `
-      SELECT DISTINCT e.idEquipo, e.nombre,
-             (SELECT GROUP_CONCAT(a.idAlumno SEPARATOR ',') 
-              FROM alumno_equipo a 
-              WHERE a.idEquipo = e.idEquipo) as alumnosStr
+    // Paso 1: obtener equipos del alumno
+    let query = `
+      SELECT DISTINCT e.idEquipo, e.nombre
       FROM equipos e
       JOIN alumno_equipo ae ON e.idEquipo = ae.idEquipo
-      WHERE ae.idAlumno = ?
-    `;
+      WHERE ae.idAlumno = ?`;
     const params = [noControl];
 
-    if (idClase !== 'TODAS') {
-      if (classId !== null) {
-        sql += ` AND e.idClase = ?`;
-        params.push(classId);
-      } else {
-        sql += ` AND e.idClase IS NULL`;
-      }
+    if (idClase && idClase !== "TODAS") {
+      query += " AND ae.idClase = ?";
+      params.push(idClase);
     }
 
-    const [rows] = await pool.query(sql, params);
-    
-    // Parsear el string de alumnos a un array
-    const equiposFormateados = rows.map(row => ({
-      ...row,
-      alumnos: row.alumnosStr ? row.alumnosStr.split(',') : []
-    }));
+    const [equiposRows] = await pool.query(query, params);
+    console.log("[getEquiposAlumno] equipos encontrados:", equiposRows.length);
 
-    res.json({ ok: true, equipos: equiposFormateados });
-  } catch (error) {
-    console.error('Error al obtener equipos del alumno:', error);
-    res.status(500).json({ error: 'Error al obtener equipos', detalles: error.message });
-  }
-};
+    if (equiposRows.length === 0) {
+      return res.json({ ok: true, equipos: [] });
+    }
 
-const eliminarEquipo = async (req, res) => {
-  const { idEquipo } = req.params;
-
-  try {
-    // Alumno_equipo (y reservas asociadas) se deberían borrar en cascada si está configurado.
-    // Si no, borramos explícitamente alumno_equipo primero, luego reservas si hay (pero reservas tiene FK).
-    // Suponemos que la base de datos no tiene CASCADE para reservas. Mejor borramos reservas primero, luego alumno_equipo, luego equipo.
-    const connection = await pool.getConnection();
-    await connection.beginTransaction();
-
-    await connection.query("DELETE FROM reservas WHERE idEquipo = ?", [idEquipo]);
-    await connection.query("DELETE FROM alumno_equipo WHERE idEquipo = ?", [idEquipo]);
-    await connection.query("DELETE FROM equipos WHERE idEquipo = ?", [idEquipo]);
-
-    await connection.commit();
-    connection.release();
-
-    res.json({ ok: true, mensaje: "Equipo eliminado" });
-  } catch (error) {
-    console.error("Error eliminando equipo:", error);
-    res.status(500).json({ error: "Error al eliminar equipo" });
-  }
-};
-
-const editarEquipo = async (req, res) => {
-  const { idEquipo } = req.params;
-  const { nombreEquipo, alumnos, idClase } = req.body;
-
-  if (!nombreEquipo || !alumnos || alumnos.length === 0 || alumnos.length > 3) {
-    return res.status(400).json({ error: "Nombre requerido y de 1 a 3 alumnos." });
-  }
-
-  const connection = await pool.getConnection();
-
-  try {
-    await connection.beginTransaction();
-
-    const classId = (idClase && idClase !== "Ninguna" && idClase !== "") ? parseInt(idClase, 10) : null;
-
-    // Actualizar nombre
-    await connection.query("UPDATE equipos SET nombre = ?, idClase = ? WHERE idEquipo = ?", [nombreEquipo, classId, idEquipo]);
-
-    // Borrar alumnos viejos
-    await connection.query("DELETE FROM alumno_equipo WHERE idEquipo = ?", [idEquipo]);
-
-    // Insertar alumnos nuevos
-    const values = alumnos.map((noControl) => [noControl, idEquipo, classId]);
-    await connection.query(
-      "INSERT INTO alumno_equipo (idAlumno, idEquipo, idClase) VALUES ?",
-      [values]
+    // Paso 2: para cada equipo, obtener sus integrantes (nombre viene de usuarios)
+    const equiposIds = equiposRows.map(e => e.idEquipo);
+    const [miembrosRows] = await pool.query(
+      `SELECT ae.idEquipo, CONCAT(u.nombre, ' ', u.apellidos) AS nombreCompleto
+       FROM alumno_equipo ae
+       JOIN alumnos a ON ae.idAlumno = a.noControl
+       JOIN usuarios u ON a.idUsuario = u.idUsuario
+       WHERE ae.idEquipo IN (?)`,
+      [equiposIds]
     );
 
-    await connection.commit();
-    res.json({ ok: true, mensaje: "Equipo actualizado" });
-  } catch (error) {
-    await connection.rollback();
-    console.error("Error editando equipo:", error);
-    
-    if (error.code === 'ER_DUP_ENTRY') {
-      return res.status(400).json({ error: "Uno de los alumnos seleccionados ya pertenece a otro equipo en esta misma clase." });
-    }
+    // Agrupar miembros por equipo
+    const miembrosPorEquipo = {};
+    miembrosRows.forEach(m => {
+      if (!miembrosPorEquipo[m.idEquipo]) miembrosPorEquipo[m.idEquipo] = [];
+      miembrosPorEquipo[m.idEquipo].push(m.nombreCompleto);
+    });
 
-    res.status(500).json({ error: "Error editando equipo", detalles: error.message });
-  } finally {
-    connection.release();
+    const equipos = equiposRows.map(e => ({
+      idEquipo: e.idEquipo,
+      nombre: e.nombre,
+      alumnos: miembrosPorEquipo[e.idEquipo] || []
+    }));
+
+    res.json({ ok: true, equipos });
+  } catch (error) {
+    console.error("Error al obtener equipos del alumno:", error.message);
+    res.status(500).json({ ok: false, error: "Error al obtener equipos", detalle: error.message });
   }
 };
 
 module.exports = {
   crearEquipo,
   getEquiposAlumno,
-  eliminarEquipo,
-  editarEquipo,
 };

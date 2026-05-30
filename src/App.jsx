@@ -16,6 +16,7 @@ function App() {
   return (
     <Login onLogin={() => setIsLoggedIn(true)} />
   );
+  
 }
 
 export default App;

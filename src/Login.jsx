@@ -36,69 +36,100 @@ export default function Login({ onLogin }) {
 
   return (
     <div className="login-container">
-      <div className="login-glass-card">
-        <div className="login-header">
-          <span className="logo-icon">🌍</span>
-          <h1>Iniciar Sesión</h1>
-          <p>Bienvenido de vuelta, explorador.</p>
+
+      {/* LADO IZQUIERDO — HERO CON KIRBY */}
+      <div className="login-hero">
+        {/* Cuadrícula de fondo */}
+        <div className="hero-grid" />
+
+        {/* Orbe de luz detrás de Kirby */}
+        <div className="hero-orb" />
+
+        <div className="hero-content">
+          <div className="hero-kirby-wrap">
+            <img
+              src="/kirby.png"
+              alt="Kirby mascota TinyEarthLab"
+              className="hero-kirby"
+              draggable="false"
+            />
+            {/* Sombra / reflejo en el suelo */}
+            <div className="hero-kirby-shadow" />
+          </div>
+
+          <h2 className="hero-title">TinyEarthLab</h2>
+          <p className="hero-subtitle">
+            Sistema de reservación de laboratorios del ITSSG
+          </p>
+
+          <div className="hero-badges">
+            <span className="hero-badge">🔬 Laboratorios</span>
+            <span className="hero-badge">📅 Reservaciones</span>
+            <span className="hero-badge">👥 Equipos</span>
+          </div>
         </div>
+      </div>
 
-        <form className="login-form" onSubmit={handleSubmit} noValidate>
-          {/* Error message */}
-          {error && <div className="login-error">⚠️ {error}</div>}
-
-          {/* Email */}
-          <div className="input-group">
-            <span className="input-icon">✉️</span>
-            <input
-              type="email"
-              id="email"
-              value={email}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                setError("");
-              }}
-              placeholder=" "
-              required
-              autoComplete="email"
-              disabled={loading}
-            />
-            <label htmlFor="email">Correo electrónico</label>
+      {/* LADO DERECHO — FORMULARIO */}
+      <div className="login-right">
+        <div className="login-glass-card">
+          <div className="login-header">
+            <span className="logo-icon">🌍</span>
+            <h1>Iniciar Sesión</h1>
+            <p>Bienvenido de vuelta, explorador.</p>
           </div>
 
-          {/* Password */}
-          <div className="input-group">
-            <span></span>
-            <input
-              type="password"
-              id="password"
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                setError("");
-              }}
-              placeholder=" "
-              required
-              autoComplete="current-password"
-              disabled={loading}
-            />
-            <label htmlFor="password">Contraseña</label>
+          <form className="login-form" onSubmit={handleSubmit} noValidate>
+            {/* Error */}
+            {error && <div className="login-error">⚠️ {error}</div>}
+
+            {/* Email */}
+            <div className="input-group">
+              <span className="input-icon">✉️</span>
+              <input
+                type="email"
+                id="email"
+                value={email}
+                onChange={(e) => { setEmail(e.target.value); setError(""); }}
+                placeholder=" "
+                required
+                autoComplete="email"
+                disabled={loading}
+              />
+              <label htmlFor="email">Correo electrónico</label>
+            </div>
+
+            {/* Password */}
+            <div className="input-group">
+              <span className="input-icon">🔒</span>
+              <input
+                type="password"
+                id="password"
+                value={password}
+                onChange={(e) => { setPassword(e.target.value); setError(""); }}
+                placeholder=" "
+                required
+                autoComplete="current-password"
+                disabled={loading}
+              />
+              <label htmlFor="password">Contraseña</label>
+            </div>
+
+            <button type="submit" className="login-button" disabled={loading}>
+              {loading ? (
+                <>
+                  <span className="btn-spinner" />
+                  Verificando...
+                </>
+              ) : (
+                "Iniciar Sesión →"
+              )}
+            </button>
+          </form>
+
+          <div className="login-footer">
+            Instituto Tecnológico Superior del Sur de Guanajuato
           </div>
-
-          <button type="submit" className="login-button" disabled={loading}>
-            {loading ? (
-              <>
-                <span className="btn-spinner" />
-                Verificando...
-              </>
-            ) : (
-              "Iniciar Sesión →"
-            )}
-          </button>
-        </form>
-
-        <div className="login-footer">
-          Instituto Tecnológico Superior del Sur de Guanajuato
         </div>
       </div>
     </div>

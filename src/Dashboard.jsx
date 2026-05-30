@@ -1,5 +1,12 @@
 import { useState, useEffect, useRef } from "react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 import * as XLSX from "xlsx";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
@@ -32,8 +39,10 @@ const getMonday = (d) => {
 
 export default function Dashboard({ onLogout }) {
   // Usuario logeado
-  const usuario = JSON.parse(localStorage.getItem("usuario"));
-
+  const [usuario, setUuario] = useState(
+    JSON.parse(localStorage.getItem("usuario")),
+  );
+  console.log("holasdsa");
   // =========================================
   // ESTADOS
   // =========================================
@@ -92,35 +101,63 @@ export default function Dashboard({ onLogout }) {
   const [showMisEquiposModal, setShowMisEquiposModal] = useState(false);
   const [todosEquipos, setTodosEquipos] = useState([]);
 
+  // Sidebar móvil
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   // =========================================
   // MODALES DE NOTIFICACIÓN Y CONFIRMACIÓN
   // =========================================
-  const [notif, setNotif] = useState({ show: false, message: "", type: "info" });
-  const [confirmModal, setConfirmModal] = useState({ show: false, message: "", onConfirm: null });
+  const [notif, setNotif] = useState({
+    show: false,
+    message: "",
+    type: "info",
+  });
+  const [confirmModal, setConfirmModal] = useState({
+    show: false,
+    message: "",
+    onConfirm: null,
+  });
 
-  const showAlert = (message, type = "info") => setNotif({ show: true, message, type });
+  const showAlert = (message, type = "info") =>
+    setNotif({ show: true, message, type });
   const hideAlert = () => setNotif({ show: false, message: "", type: "info" });
-  const showConfirm = (message, onConfirm) => setConfirmModal({ show: true, message, onConfirm });
-  const hideConfirm = () => setConfirmModal({ show: false, message: "", onConfirm: null });
+  const showConfirm = (message, onConfirm) =>
+    setConfirmModal({ show: true, message, onConfirm });
+  const hideConfirm = () =>
+    setConfirmModal({ show: false, message: "", onConfirm: null });
 
   // =========================================
   // OBTENER LABORATORIOS
   // =========================================
   const obtenerLaboratoriosClase = async () => {
     try {
-      const r = await fetch(`http://localhost:3000/api/laboratorios/alumno/${usuario.idUsuario}`);
+      const r = await fetch(
+        `http://localhost:3000/api/laboratorios/alumno/${usuario.idUsuario}`,
+      );
       const d = await r.json();
-      if (d.ok) { setLaboratoriosClase(d.laboratorios); return d.laboratorios; }
+      if (d.ok) {
+        setLaboratoriosClase(d.laboratorios);
+        return d.laboratorios;
+      }
       return [];
-    } catch { return []; }
+    } catch {
+      return [];
+    }
   };
   const obtenerLaboratoriosSiempre = async () => {
     try {
-      const r = await fetch("http://localhost:3000/api/laboratorios/siempre-disponibles");
+      const r = await fetch(
+        "http://localhost:3000/api/laboratorios/siempre-disponibles",
+      );
       const d = await r.json();
-      if (d.ok) { setLaboratoriosSiempre(d.laboratorios); return d.laboratorios; }
+      if (d.ok) {
+        setLaboratoriosSiempre(d.laboratorios);
+        return d.laboratorios;
+      }
       return [];
-    } catch { return []; }
+    } catch {
+      return [];
+    }
   };
 
   // =========================================
@@ -131,45 +168,74 @@ export default function Dashboard({ onLogout }) {
       const r = await fetch("http://localhost:3000/api/alumnos");
       const d = await r.json();
       if (Array.isArray(d)) setAlumnosDb(d);
-    } catch (e) { console.log(e); }
+    } catch (e) {
+      console.log(e);
+    }
   };
   const obtenerClasesAlumno = async () => {
     try {
       if (!usuario.noControl) return;
-      const r = await fetch(`http://localhost:3000/api/clases/alumno/${usuario.noControl}`);
+      const r = await fetch(
+        `http://localhost:3000/api/clases/alumno/${usuario.noControl}`,
+      );
       const d = await r.json();
       if (d.ok) setClasesAlumno(d.clases);
-    } catch (e) { console.log(e); }
+    } catch (e) {
+      console.log(e);
+    }
   };
 
   // =========================================
   // EQUIPOS
   // =========================================
   const abrirModalEquipos = () => {
-    setNombreEquipo(""); obtenerAlumnosDb(); obtenerClasesAlumno();
-    setSelectedClaseEquipo("999"); setSelectedTeamMembers([]); setShowCreateTeamModal(true);
+    setNombreEquipo("");
+    obtenerAlumnosDb();
+    obtenerClasesAlumno();
+    setSelectedClaseEquipo("999");
+    setSelectedTeamMembers([]);
+    setShowCreateTeamModal(true);
   };
   const handleToggleMember = (noControl) => {
     setSelectedTeamMembers((prev) => {
-      if (prev.includes(noControl)) return prev.filter((id) => id !== noControl);
+      if (prev.includes(noControl))
+        return prev.filter((id) => id !== noControl);
       if (prev.length >= 3) return prev;
       return [...prev, noControl];
     });
   };
   const handleCrearEquipo = async () => {
-    if (!nombreEquipo.trim()) { showAlert("Debes ingresar un nombre para el equipo.", "error"); return; }
-    if (selectedTeamMembers.length === 0 || selectedTeamMembers.length > 3) { showAlert("Debes seleccionar entre 1 y 3 alumnos.", "error"); return; }
+    if (!nombreEquipo.trim()) {
+      showAlert("Debes ingresar un nombre para el equipo.", "error");
+      return;
+    }
+    if (selectedTeamMembers.length === 0 || selectedTeamMembers.length > 3) {
+      showAlert("Debes seleccionar entre 1 y 3 alumnos.", "error");
+      return;
+    }
     try {
       const r = await fetch("http://localhost:3000/api/equipos", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nombreEquipo, alumnos: selectedTeamMembers, idClase: selectedClaseEquipo }),
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nombreEquipo,
+          alumnos: selectedTeamMembers,
+          idClase: selectedClaseEquipo,
+        }),
       });
       const d = await r.json();
       if (d.ok) {
         showAlert("Equipo creado exitosamente", "success");
-        setShowCreateTeamModal(false); setSelectedTeamMembers([]); setNombreEquipo(""); setSelectedClaseEquipo("999");
-      } else { showAlert(d.error + (d.detalles ? ": " + d.detalles : ""), "error"); }
-    } catch { showAlert("Error de conexión al crear equipo", "error"); }
+        setShowCreateTeamModal(false);
+        setSelectedTeamMembers([]);
+        setNombreEquipo("");
+        setSelectedClaseEquipo("999");
+      } else {
+        showAlert(d.error + (d.detalles ? ": " + d.detalles : ""), "error");
+      }
+    } catch {
+      showAlert("Error de conexión al crear equipo", "error");
+    }
   };
 
   // =========================================
@@ -179,68 +245,131 @@ export default function Dashboard({ onLogout }) {
     try {
       if (!usuario.noControl) return;
       const r = await fetch("http://localhost:3000/api/equipos/alumno", {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ noControl: usuario.noControl, idClase }),
       });
       const d = await r.json();
       if (d.ok) setMisEquipos(d.equipos);
-    } catch (e) { console.log(e); }
+    } catch (e) {
+      console.log(e);
+    }
   };
   const abrirModalReserva = (fecha, hora) => {
     const cl = clasesAlumno.find((c) => c.idLaboratorio == selectedLab);
     obtenerMisEquipos(cl ? cl.idClase : "TODAS");
-    setReservaSlot({ fecha, hora }); setSelectedEquipoReserva(null); setShowReservaModal(true);
+    setReservaSlot({ fecha, hora });
+    setSelectedEquipoReserva(null);
+    setShowReservaModal(true);
   };
   const handleCrearReserva = async () => {
-    if (!selectedEquipoReserva) { showAlert("Por favor selecciona un equipo.", "error"); return; }
+    if (!selectedEquipoReserva) {
+      showAlert("Por favor selecciona un equipo.", "error");
+      return;
+    }
     try {
       const r = await fetch("http://localhost:3000/api/reservas", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idEquipo: selectedEquipoReserva, idLaboratorio: selectedLab, fecha: reservaSlot.fecha, hora: reservaSlot.hora }),
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          idEquipo: selectedEquipoReserva,
+          idLaboratorio: selectedLab,
+          fecha: reservaSlot.fecha,
+          hora: reservaSlot.hora,
+        }),
       });
       const d = await r.json();
-      if (d.ok) { showAlert("Reserva exitosa en la estación " + d.noEstacion, "success"); setShowReservaModal(false); obtenerReservas(selectedLab); }
-      else showAlert(d.mensaje || "Error al reservar", "error");
-    } catch { showAlert("Error de conexión al realizar la reserva", "error"); }
+      if (d.ok) {
+        showAlert("Reserva exitosa en la estación " + d.noEstacion, "success");
+        setShowReservaModal(false);
+        obtenerReservas(selectedLab);
+      } else showAlert(d.mensaje || "Error al reservar", "error");
+    } catch {
+      showAlert("Error de conexión al realizar la reserva", "error");
+    }
   };
 
   // =========================================
   // GESTIÓN DE RESERVAS
   // =========================================
   const abrirModalGestion = (fecha, hora) => {
-    let slots = reservas.filter((r) => r.fecha.split("T")[0] === fecha && r.hora.substring(0, 5) === hora);
-    if (usuario.tipo !== "maestro" && usuario.tipo !== "administrador" && usuario.tipo !== "docente") slots = slots.filter((r) => r.esMia);
-    if (slots.length > 0) { setReservaSlot({ fecha, hora }); setReservasParaGestion(slots); setShowGestionModal(true); }
+    let slots = reservas.filter(
+      (r) => r.fecha.split("T")[0] === fecha && r.hora.substring(0, 5) === hora,
+    );
+    if (
+      usuario.tipo !== "maestro" &&
+      usuario.tipo !== "administrador" &&
+      usuario.tipo !== "docente"
+    )
+      slots = slots.filter((r) => r.esMia);
+    if (slots.length > 0) {
+      setReservaSlot({ fecha, hora });
+      setReservasParaGestion(slots);
+      setShowGestionModal(true);
+    }
   };
   const handleCancelarHora = () => {
-    showConfirm("¿Estás seguro de cancelar TODAS las reservas en esta hora?", async () => {
-      try {
-        const r = await fetch("http://localhost:3000/api/reservas/cancelar-hora", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ idLaboratorio: selectedLab, fecha: reservaSlot.fecha, hora: reservaSlot.hora, noControl: usuario.noControl, tipo: usuario.tipo }),
-        });
-        const d = await r.json();
-        if (d.ok) { showAlert(`Se cancelaron ${d.reservasCanceladas} reservas`, "success"); setReservasParaGestion([]); setShowGestionModal(false); obtenerReservas(selectedLab); }
-        else showAlert(d.mensaje || "Error al cancelar", "error");
-      } catch { showAlert("Error de conexión al cancelar la hora", "error"); }
-    });
+    showConfirm(
+      "¿Estás seguro de cancelar TODAS las reservas en esta hora?",
+      async () => {
+        try {
+          const r = await fetch(
+            "http://localhost:3000/api/reservas/cancelar-hora",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                idLaboratorio: selectedLab,
+                fecha: reservaSlot.fecha,
+                hora: reservaSlot.hora,
+                noControl: usuario.noControl,
+                tipo: usuario.tipo,
+              }),
+            },
+          );
+          const d = await r.json();
+          if (d.ok) {
+            showAlert(
+              `Se cancelaron ${d.reservasCanceladas} reservas`,
+              "success",
+            );
+            setReservasParaGestion([]);
+            setShowGestionModal(false);
+            obtenerReservas(selectedLab);
+          } else showAlert(d.mensaje || "Error al cancelar", "error");
+        } catch {
+          showAlert("Error de conexión al cancelar la hora", "error");
+        }
+      },
+    );
   };
   const handleCancelarReservaIndividual = (idReserva) => {
     showConfirm("¿Cancelar esta reserva individual?", async () => {
       try {
-        const r = await fetch(`http://localhost:3000/api/reservas/cancelar/${idReserva}`, {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ noControl: usuario.noControl, tipo: usuario.tipo }),
-        });
+        const r = await fetch(
+          `http://localhost:3000/api/reservas/cancelar/${idReserva}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              noControl: usuario.noControl,
+              tipo: usuario.tipo,
+            }),
+          },
+        );
         const d = await r.json();
         if (d.ok) {
           showAlert("Reserva cancelada correctamente", "success");
-          const nuevas = reservasParaGestion.filter((r) => r.idReserva !== idReserva);
+          const nuevas = reservasParaGestion.filter(
+            (r) => r.idReserva !== idReserva,
+          );
           setReservasParaGestion(nuevas);
           if (nuevas.length === 0) setShowGestionModal(false);
           obtenerReservas(selectedLab);
         } else showAlert(d.mensaje || "Error al cancelar", "error");
-      } catch { showAlert("Error de conexión", "error"); }
+      } catch {
+        showAlert("Error de conexión", "error");
+      }
     });
   };
 
@@ -249,13 +378,21 @@ export default function Dashboard({ onLogout }) {
   // =========================================
   const cargarLaboratorios = async () => {
     try {
-      const r = await fetch("http://localhost:3000/api/laboratorios/todos");
+      const esMaestro = usuario.tipo === "maestro" || usuario.tipo === "docente" || usuario.tipo === "administrador";
+      const url = esMaestro
+        ? "http://localhost:3000/api/laboratorios/todos"
+        : `http://localhost:3000/api/laboratorios/alumno/${usuario.idUsuario}`;
+
+      const r = await fetch(url);
       const d = await r.json();
       if (d.ok) {
-        setLaboratorios(d.laboratorios); setLaboratoriosSiempre([]); setLaboratoriosClase([]);
-        if (d.laboratorios.length > 0) setSelectedLab(d.laboratorios[0].idLaboratorio);
+        setLaboratorios(d.laboratorios);
+        if (d.laboratorios.length > 0)
+          setSelectedLab(d.laboratorios[0].idLaboratorio);
       }
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   // =========================================
@@ -264,91 +401,79 @@ export default function Dashboard({ onLogout }) {
   const obtenerTodosEquipos = async () => {
     try {
       const r = await fetch("http://localhost:3000/api/equipos/alumno", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ noControl: usuario.noControl, idClase: "TODAS" }),
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          noControl: usuario.noControl,
+          idClase: "TODAS",
+        }),
       });
       const d = await r.json();
-      if (d.ok) setTodosEquipos(d.equipos); else setTodosEquipos([]);
-    } catch (e) { console.error(e); }
+      if (d.ok) setTodosEquipos(d.equipos);
+      else setTodosEquipos([]);
+    } catch (e) {
+      console.error(e);
+    }
   };
   const handleEliminarEquipo = (idEquipo) => {
-    showConfirm("¿Estás seguro de eliminar este equipo? Esto también eliminará sus reservas.", async () => {
-      try {
-        const r = await fetch(`http://localhost:3000/api/equipos/${idEquipo}`, { method: "DELETE" });
-        const d = await r.json();
-        if (d.ok) { showAlert("Equipo eliminado correctamente", "success"); obtenerTodosEquipos(); }
-        else showAlert(d.error || "Error al eliminar", "error");
-      } catch { showAlert("Error de conexión", "error"); }
-    });
+    showConfirm(
+      "¿Estás seguro de eliminar este equipo? Esto también eliminará sus reservas.",
+      async () => {
+        try {
+          const r = await fetch(
+            `http://localhost:3000/api/equipos/${idEquipo}`,
+            { method: "DELETE" },
+          );
+          const d = await r.json();
+          if (d.ok) {
+            showAlert("Equipo eliminado correctamente", "success");
+            obtenerTodosEquipos();
+          } else showAlert(d.error || "Error al eliminar", "error");
+        } catch {
+          showAlert("Error de conexión", "error");
+        }
+      },
+    );
   };
 
   // =========================================
   // EXPORTAR
   // =========================================
   const exportarExcel = () => {
+    const ws = XLSX.utils.json_to_sheet(
+      statsData.map((d) => ({ Hora: d.hora, "Reservas Confirmadas": d.usos })),
+    );
     const wb = XLSX.utils.book_new();
-    // Hoja 1: Tabla de Reservas
-    const wsTabla = XLSX.utils.json_to_sheet(tablaData.map((d) => ({
-      Fecha: new Date(d.fecha).toLocaleDateString('es-ES'),
-      Hora: d.hora.substring(0,5),
-      Equipo: d.equipo,
-      Estación: d.noEstacion
-    })));
-    XLSX.utils.book_append_sheet(wb, wsTabla, "Reservas Confirmadas");
-    // Hoja 2: Por Día
-    if (statsDiaData.length > 0) {
-      const wsDia = XLSX.utils.json_to_sheet(statsDiaData.map((d) => ({ Día: d.dia, "Reservas Confirmadas": d.usos })));
-      XLSX.utils.book_append_sheet(wb, wsDia, "Por Día");
-    }
-    XLSX.writeFile(wb, `estadisticas_${laboratorioActual?.nombre || "lab"}.xlsx`);
+    XLSX.utils.book_append_sheet(wb, ws, "Estadísticas");
+    XLSX.writeFile(
+      wb,
+      `estadisticas_${laboratorioActual?.nombre || "lab"}.xlsx`,
+    );
   };
   const exportarPDF = async () => {
     if (!chartRef.current) return;
     try {
+      const canvas = await html2canvas(chartRef.current, {
+        backgroundColor: "#0f172a",
+      });
+      const imgData = canvas.toDataURL("image/png");
       const pdf = new jsPDF("landscape", "mm", "a4");
       const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-
-      // Fondo oscuro página 1
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
       pdf.setFillColor(15, 23, 42);
-      pdf.rect(0, 0, pdfWidth, pageHeight, "F");
+      pdf.rect(0, 0, pdfWidth, pdf.internal.pageSize.getHeight(), "F");
       pdf.setTextColor(255, 255, 255);
       pdf.setFontSize(18);
-      pdf.text(`Estadísticas - ${laboratorioActual?.nombre || "Laboratorio"}`, 14, 20);
-
-      // Gráfica 1: Tabla (anteriormente Por Hora)
-      pdf.setFontSize(13);
-      pdf.text("Reporte de Reservas", 14, 32);
-      const canvas1 = await html2canvas(chartRef.current, { backgroundColor: "#0f172a" });
-      const img1 = canvas1.toDataURL("image/png");
-      const h1 = (canvas1.height * (pdfWidth - 28)) / canvas1.width;
-      pdf.addImage(img1, "PNG", 14, 36, pdfWidth - 28, h1);
-
-      // Gráfica 2: Por Día (si hay datos)
-      if (chartDiaRef.current && statsDiaData.length > 0) {
-        const canvas2 = await html2canvas(chartDiaRef.current, { backgroundColor: "#0f172a" });
-        const img2 = canvas2.toDataURL("image/png");
-        const h2 = (canvas2.height * (pdfWidth - 28)) / canvas2.width;
-        const startY = 36 + h1 + 12;
-
-        // Si no cabe en la misma página, agregar nueva
-        if (startY + h2 + 10 > pageHeight) {
-          pdf.addPage();
-          pdf.setFillColor(15, 23, 42);
-          pdf.rect(0, 0, pdfWidth, pageHeight, "F");
-          pdf.setTextColor(255, 255, 255);
-          pdf.setFontSize(13);
-          pdf.text("Por Día de la Semana", 14, 20);
-          pdf.addImage(img2, "PNG", 14, 26, pdfWidth - 28, h2);
-        } else {
-          pdf.setFontSize(13);
-          pdf.text("Por Día de la Semana", 14, startY);
-          pdf.addImage(img2, "PNG", 14, startY + 6, pdfWidth - 28, h2);
-        }
-      }
-
+      pdf.text(
+        `Estadísticas - ${laboratorioActual?.nombre || "Laboratorio"}`,
+        14,
+        20,
+      );
+      pdf.addImage(imgData, "PNG", 14, 30, pdfWidth - 28, pdfHeight - 10);
       pdf.save(`estadisticas_${laboratorioActual?.nombre || "lab"}.pdf`);
-    } catch { showAlert("Error al exportar PDF", "error"); }
+    } catch {
+      showAlert("Error al exportar PDF", "error");
+    }
   };
 
   // =========================================
@@ -356,11 +481,21 @@ export default function Dashboard({ onLogout }) {
   // =========================================
   const obtenerReservas = async (idLab) => {
     try {
-      const r = await fetch(`http://localhost:3000/api/reservas/laboratorio/${idLab}?noControl=${usuario.noControl || ""}`);
+      const r = await fetch(
+        `http://localhost:3000/api/reservas/laboratorio/${idLab}?noControl=${usuario.noControl || ""}`,
+      );
       const d = await r.json();
-      if (d.ok) { setReservas(d.reservas); setDiasBloqueados(d.diasBloqueados || []); }
-      else { setReservas([]); setDiasBloqueados([]); }
-    } catch { setReservas([]); setDiasBloqueados([]); }
+      if (d.ok) {
+        setReservas(d.reservas);
+        setDiasBloqueados(d.diasBloqueados || []);
+      } else {
+        setReservas([]);
+        setDiasBloqueados([]);
+      }
+    } catch {
+      setReservas([]);
+      setDiasBloqueados([]);
+    }
   };
   const obtenerEstadisticas = async (idLab) => {
     try {
@@ -370,13 +505,15 @@ export default function Dashboard({ onLogout }) {
       }
       const r = await fetch(url);
       const d = await r.json();
-      if (d.ok) { 
-        setStatsData(d.estadisticas); 
-        setStatsDiaData(d.estadisticasPorDia || []); 
+      if (d.ok) {
+        setStatsData(d.estadisticas);
+        setStatsDiaData(d.estadisticasPorDia || []);
         setTablaData(d.tabla || []);
-        setShowStatsModal(true); 
+        setShowStatsModal(true);
       }
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   // =========================================
@@ -392,14 +529,25 @@ export default function Dashboard({ onLogout }) {
     showConfirm(confirmMsg, async () => {
       try {
         const endpoint = isBlocked ? "desbloquear-dia" : "bloquear-dia";
-        const r = await fetch(`http://localhost:3000/api/reservas/${endpoint}`, {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ fecha: fechaString, idLaboratorio: selectedLab }),
-        });
+        const r = await fetch(
+          `http://localhost:3000/api/reservas/${endpoint}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              fecha: fechaString,
+              idLaboratorio: selectedLab,
+            }),
+          },
+        );
         const d = await r.json();
-        if (d.ok) { showAlert(d.mensaje, "success"); obtenerReservas(selectedLab); }
-        else showAlert("Error: " + d.mensaje, "error");
-      } catch { showAlert("Error de conexión al " + accionText + " día.", "error"); }
+        if (d.ok) {
+          showAlert(d.mensaje, "success");
+          obtenerReservas(selectedLab);
+        } else showAlert("Error: " + d.mensaje, "error");
+      } catch {
+        showAlert("Error de conexión al " + accionText + " día.", "error");
+      }
     });
   };
 
@@ -408,6 +556,7 @@ export default function Dashboard({ onLogout }) {
   // =========================================
 
   useEffect(() => {
+    console.log(usuario);
     cargarLaboratorios();
     obtenerClasesAlumno();
   }, []);
@@ -537,8 +686,18 @@ export default function Dashboard({ onLogout }) {
 
   return (
     <div className="dashboard-container">
+
+      {/* BOTÓN HAMBURGUESA (solo móvil) */}
+      <button className="sidebar-toggle" onClick={() => setSidebarOpen(true)}>☰</button>
+
+      {/* OVERLAY detrás del sidebar en móvil */}
+      <div
+        className={`sidebar-overlay ${sidebarOpen ? "open" : ""}`}
+        onClick={() => setSidebarOpen(false)}
+      />
+
       {/* SIDEBAR */}
-      <aside className="sidebar">
+      <aside className={`sidebar ${sidebarOpen ? "open" : ""}`}>
         <div className="sidebar-header">
           <div className="logo-icon-small">🌍</div>
 
@@ -554,7 +713,7 @@ export default function Dashboard({ onLogout }) {
               className={`lab-button ${
                 selectedLab == lab.idLaboratorio ? "active" : ""
               }`}
-              onClick={() => setSelectedLab(lab.idLaboratorio)}
+              onClick={() => { setSelectedLab(lab.idLaboratorio); setSidebarOpen(false); }}
             >
               <div className="lab-name">{lab.nombre}</div>
               <div className="lab-building">{lab.edificio}</div>
@@ -563,21 +722,29 @@ export default function Dashboard({ onLogout }) {
         </nav>
 
         <div className="sidebar-footer">
-          {usuario.tipo !== "maestro" && usuario.tipo !== "docente" && usuario.tipo !== "administrador" && (
-            <>
-              <button className="create-team-btn" onClick={abrirModalEquipos}>
-                Crear Equipo
-              </button>
+          {usuario.tipo !== "maestro" &&
+            usuario.tipo !== "docente" &&
+            usuario.tipo !== "administrador" && (
+              <>
+                <button className="create-team-btn" onClick={abrirModalEquipos}>
+                  Crear Equipo
+                </button>
 
-              <button 
-                className="create-team-btn" 
-                style={{ background: "rgba(59, 130, 246, 0.15)", borderColor: "rgba(59, 130, 246, 0.3)" }}
-                onClick={() => { obtenerTodosEquipos(); setShowMisEquiposModal(true); }}
-              >
-                Mis Equipos
-              </button>
-            </>
-          )}
+                <button
+                  className="create-team-btn"
+                  style={{
+                    background: "rgba(59, 130, 246, 0.15)",
+                    borderColor: "rgba(59, 130, 246, 0.3)",
+                  }}
+                  onClick={() => {
+                    obtenerTodosEquipos();
+                    setShowMisEquiposModal(true);
+                  }}
+                >
+                  Mis Equipos
+                </button>
+              </>
+            )}
 
           <button className="logout-button" onClick={onLogout}>
             Cerrar Sesión
@@ -591,10 +758,12 @@ export default function Dashboard({ onLogout }) {
           <div className="header-title-area">
             <h1>{laboratorioActual?.nombre}</h1>
 
-            <p style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+            <p style={{ display: "flex", alignItems: "center", gap: "15px" }}>
               Reserva por hora en diferentes semanas.
-              {(usuario.tipo === "maestro" || usuario.tipo === "docente" || usuario.tipo === "administrador") && (
-                <button 
+              {(usuario.tipo === "maestro" ||
+                usuario.tipo === "docente" ||
+                usuario.tipo === "administrador") && (
+                <button
                   onClick={() => obtenerEstadisticas(selectedLab)}
                   style={{
                     background: "rgba(59, 130, 246, 0.2)",
@@ -605,10 +774,14 @@ export default function Dashboard({ onLogout }) {
                     cursor: "pointer",
                     fontSize: "12px",
                     fontWeight: "bold",
-                    transition: "all 0.2s"
+                    transition: "all 0.2s",
                   }}
-                  onMouseOver={(e) => e.target.style.background = "rgba(59, 130, 246, 0.4)"}
-                  onMouseOut={(e) => e.target.style.background = "rgba(59, 130, 246, 0.2)"}
+                  onMouseOver={(e) =>
+                    (e.target.style.background = "rgba(59, 130, 246, 0.4)")
+                  }
+                  onMouseOut={(e) =>
+                    (e.target.style.background = "rgba(59, 130, 246, 0.2)")
+                  }
                 >
                   Ver Estadísticas
                 </button>
@@ -640,17 +813,29 @@ export default function Dashboard({ onLogout }) {
             {currentWeekDays.map((date) => {
               const dateStr = formatDateString(date);
               const isBlocked = diasBloqueados.includes(dateStr);
-              const canBlock = usuario.tipo === "maestro" || usuario.tipo === "administrador" || usuario.tipo === "docente";
+              const canBlock =
+                usuario.tipo === "maestro" ||
+                usuario.tipo === "administrador" ||
+                usuario.tipo === "docente";
 
               return (
-                <div 
-                  key={date.toISOString()} 
+                <div
+                  key={date.toISOString()}
                   className={`calendar-header-cell ${canBlock ? "clickable-header" : ""} ${isBlocked ? "blocked-header" : ""}`}
                   onClick={() => canBlock && handleToggleBloquearDia(dateStr)}
-                  title={canBlock ? (isBlocked ? "Clic para desbloquear" : "Clic para bloquear el día") : ""}
-                  style={{ cursor: canBlock ? "pointer" : "default", transition: "all 0.2s" }}
+                  title={
+                    canBlock
+                      ? isBlocked
+                        ? "Clic para desbloquear"
+                        : "Clic para bloquear el día"
+                      : ""
+                  }
+                  style={{
+                    cursor: canBlock ? "pointer" : "default",
+                    transition: "all 0.2s",
+                  }}
                 >
-                  {formatHeaderDate(date)} {isBlocked }
+                  {formatHeaderDate(date)} {isBlocked}
                 </div>
               );
             })}
@@ -671,7 +856,7 @@ export default function Dashboard({ onLogout }) {
 
                   const reservadas = contarReservas(dateString, hora);
 
-                  const esMiReserva = reservas.some(r => {
+                  const esMiReserva = reservas.some((r) => {
                     const rFecha = r.fecha.split("T")[0];
                     const rHora = r.hora.substring(0, 5);
                     return rFecha === dateString && rHora === hora && r.esMia;
@@ -688,35 +873,44 @@ export default function Dashboard({ onLogout }) {
 
                   const horarioPasado = fechaHoraCelda < ahora;
 
-                  const esMaestro = usuario.tipo === "maestro" || usuario.tipo === "administrador" || usuario.tipo === "docente";
+                  const esMaestro =
+                    usuario.tipo === "maestro" ||
+                    usuario.tipo === "administrador" ||
+                    usuario.tipo === "docente";
 
                   return (
                     <div
                       key={`${selectedLab}-${dateString}-${hora}`}
                       className={`calendar-cell
                         ${horarioPasado && !isBlocked ? "past-cell" : ""}
-                        ${(disponibles <= 0 && !isBlocked) ? "reserved" : ""}
+                        ${disponibles <= 0 && !isBlocked ? "reserved" : ""}
                         ${isBlocked ? "blocked-cell" : ""}
                         ${esMiReserva ? "mi-reserva-cell" : ""}
                       `}
                       style={{
-                        backgroundColor: isBlocked 
-                          ? "rgba(239, 68, 68, 0.15)" 
-                          : (!isBlocked && !horarioPasado 
-                              ? (esMiReserva 
-                                  ? "rgba(34, 197, 94, 0.2)" 
-                                  : (reservadas > 0 ? "rgba(59, 130, 246, 0.15)" : ""))
-                              : ""),
-                        borderColor: isBlocked 
-                          ? "rgba(239, 68, 68, 0.3)" 
-                          : (!isBlocked && !horarioPasado 
-                              ? (esMiReserva 
-                                  ? "rgba(34, 197, 94, 0.5)" 
-                                  : (reservadas > 0 ? "rgba(59, 130, 246, 0.3)" : ""))
-                              : ""),
-                        cursor: isBlocked ? "not-allowed" : ""
+                        backgroundColor: isBlocked
+                          ? "rgba(239, 68, 68, 0.15)"
+                          : !isBlocked && !horarioPasado
+                            ? esMiReserva
+                              ? "rgba(34, 197, 94, 0.2)"
+                              : reservadas > 0
+                                ? "rgba(59, 130, 246, 0.15)"
+                                : ""
+                            : "",
+                        borderColor: isBlocked
+                          ? "rgba(239, 68, 68, 0.3)"
+                          : !isBlocked && !horarioPasado
+                            ? esMiReserva
+                              ? "rgba(34, 197, 94, 0.5)"
+                              : reservadas > 0
+                                ? "rgba(59, 130, 246, 0.3)"
+                                : ""
+                            : "",
+                        cursor: isBlocked ? "not-allowed" : "",
                       }}
-                      title={isBlocked ? "Día bloqueado" : "Horario del laboratorio"}
+                      title={
+                        isBlocked ? "Día bloqueado" : "Horario del laboratorio"
+                      }
                       onClick={() => {
                         if (isBlocked) return;
                         if (horarioPasado && !esMaestro) return;
@@ -731,7 +925,16 @@ export default function Dashboard({ onLogout }) {
                       }}
                     >
                       {isBlocked ? (
-                        <div className="blocked-text" style={{ color: "#f87171", fontSize: "12px", fontWeight: "bold" }}>Bloqueado</div>
+                        <div
+                          className="blocked-text"
+                          style={{
+                            color: "#f87171",
+                            fontSize: "12px",
+                            fontWeight: "bold",
+                          }}
+                        >
+                          Bloqueado
+                        </div>
                       ) : horarioPasado ? (
                         <div className="past-text">—</div>
                       ) : disponibles <= 0 ? (
@@ -772,7 +975,7 @@ export default function Dashboard({ onLogout }) {
                 type="text"
                 value={nombreEquipo}
                 onChange={(e) => setNombreEquipo(e.target.value)}
-                placeholder="Ej. Los Hackers"
+                placeholder="Ej. legu loveers"
                 style={{
                   width: "100%",
                   padding: "10px",
@@ -961,36 +1164,55 @@ export default function Dashboard({ onLogout }) {
       {/* MODAL GESTIÓN DE RESERVAS (MAESTROS/ADMIN) */}
       {showGestionModal && (
         <div className="modal-overlay">
-          <div className="modal-content login-glass-card" style={{ maxWidth: "550px" }}>
-            <h2>{usuario.tipo === "maestro" || usuario.tipo === "administrador" || usuario.tipo === "docente" ? "Gestionar Reservas" : "Mis Reservas"}</h2>
+          <div
+            className="modal-content login-glass-card"
+            style={{ maxWidth: "550px" }}
+          >
+            <h2>
+              {usuario.tipo === "maestro" ||
+              usuario.tipo === "administrador" ||
+              usuario.tipo === "docente"
+                ? "Gestionar Reservas"
+                : "Mis Reservas"}
+            </h2>
             <p style={{ color: "var(--text-muted)", marginBottom: "20px" }}>
               {reservaSlot?.fecha} - {reservaSlot?.hora}
             </p>
 
             {reservasParaGestion.length === 0 ? (
-              <p style={{ color: "var(--text-muted)" }}>No hay reservas en este horario.</p>
+              <p style={{ color: "var(--text-muted)" }}>
+                No hay reservas en este horario.
+              </p>
             ) : (
               <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
                 {reservasParaGestion.map((r) => (
-                  <li 
+                  <li
                     key={r.idReserva}
-                    style={{ 
-                      display: "flex", 
-                      justifyContent: "space-between", 
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
                       alignItems: "center",
                       background: "rgba(0,0,0,0.2)",
                       padding: "12px",
                       borderRadius: "8px",
                       marginBottom: "10px",
-                      border: "1px solid rgba(255,255,255,0.05)"
+                      border: "1px solid rgba(255,255,255,0.05)",
                     }}
                   >
                     <div>
-                      <div style={{ fontWeight: "bold", color: "white" }}>Equipo: {r.equipoNombre || "Desconocido"}</div>
-                      <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>ID Reserva: {r.idReserva}</div>
+                      <div style={{ fontWeight: "bold", color: "white" }}>
+                        Equipo: {r.equipoNombre || "Desconocido"}
+                      </div>
+                      <div
+                        style={{ fontSize: "12px", color: "var(--text-muted)" }}
+                      >
+                        ID Reserva: {r.idReserva}
+                      </div>
                     </div>
-                    <button 
-                      onClick={() => handleCancelarReservaIndividual(r.idReserva)}
+                    <button
+                      onClick={() =>
+                        handleCancelarReservaIndividual(r.idReserva)
+                      }
                       style={{
                         background: "rgba(239, 68, 68, 0.15)",
                         color: "#fca5a5",
@@ -999,10 +1221,14 @@ export default function Dashboard({ onLogout }) {
                         borderRadius: "6px",
                         cursor: "pointer",
                         fontSize: "12px",
-                        transition: "all 0.2s"
+                        transition: "all 0.2s",
                       }}
-                      onMouseOver={(e) => e.target.style.background = "rgba(239, 68, 68, 0.35)"}
-                      onMouseOut={(e) => e.target.style.background = "rgba(239, 68, 68, 0.15)"}
+                      onMouseOver={(e) =>
+                        (e.target.style.background = "rgba(239, 68, 68, 0.35)")
+                      }
+                      onMouseOut={(e) =>
+                        (e.target.style.background = "rgba(239, 68, 68, 0.15)")
+                      }
                     >
                       Quitar
                     </button>
@@ -1011,7 +1237,15 @@ export default function Dashboard({ onLogout }) {
               </ul>
             )}
 
-            <div style={{ display: "flex", gap: "10px", marginTop: "24px", justifyContent: "flex-end", flexWrap: "wrap" }}>
+            <div
+              style={{
+                display: "flex",
+                gap: "10px",
+                marginTop: "24px",
+                justifyContent: "flex-end",
+                flexWrap: "wrap",
+              }}
+            >
               <button
                 style={{
                   background: "transparent",
@@ -1025,34 +1259,43 @@ export default function Dashboard({ onLogout }) {
               >
                 Cerrar
               </button>
-              {reservasParaGestion.length > 0 && (usuario.tipo === "maestro" || usuario.tipo === "administrador" || usuario.tipo === "docente") && (
-                <button
-                  style={{
-                    background: "rgba(239, 68, 68, 0.2)",
-                    color: "#fca5a5",
-                    border: "1px solid rgba(239, 68, 68, 0.4)",
-                    padding: "10px 20px",
-                    borderRadius: "8px",
-                    cursor: "pointer",
-                    fontWeight: "bold",
-                    transition: "all 0.2s"
-                  }}
-                  onMouseOver={(e) => e.target.style.background = "rgba(239, 68, 68, 0.4)"}
-                  onMouseOut={(e) => e.target.style.background = "rgba(239, 68, 68, 0.2)"}
-                  onClick={handleCancelarHora}
-                >
-                  Liberar Toda la Hora
-                </button>
-              )}
+              {reservasParaGestion.length > 0 &&
+                (usuario.tipo === "maestro" ||
+                  usuario.tipo === "administrador" ||
+                  usuario.tipo === "docente") && (
+                  <button
+                    style={{
+                      background: "rgba(239, 68, 68, 0.2)",
+                      color: "#fca5a5",
+                      border: "1px solid rgba(239, 68, 68, 0.4)",
+                      padding: "10px 20px",
+                      borderRadius: "8px",
+                      cursor: "pointer",
+                      fontWeight: "bold",
+                      transition: "all 0.2s",
+                    }}
+                    onMouseOver={(e) =>
+                      (e.target.style.background = "rgba(239, 68, 68, 0.4)")
+                    }
+                    onMouseOut={(e) =>
+                      (e.target.style.background = "rgba(239, 68, 68, 0.2)")
+                    }
+                    onClick={handleCancelarHora}
+                  >
+                    Liberar Toda la Hora
+                  </button>
+                )}
             </div>
           </div>
         </div>
       )}
-
       {/* MODAL ESTADÍSTICAS */}
       {showStatsModal && (
         <div className="modal-overlay">
-          <div className="modal-content login-glass-card" style={{ maxWidth: "800px", width: "95%" }}>
+          <div
+            className="modal-content login-glass-card"
+            style={{ maxWidth: "800px", width: "95%" }}
+          >
             <h2>Estadísticas de Uso</h2>
             <p style={{ color: "var(--text-muted)", marginBottom: "20px" }}>
               {laboratorioActual?.nombre} — Reservas confirmadas históricas
@@ -1060,17 +1303,64 @@ export default function Dashboard({ onLogout }) {
 
             <div style={{ display: "flex", gap: "15px", marginBottom: "20px" }}>
               <div>
-                <label style={{ display: "block", color: "#cbd5e1", fontSize: "14px", marginBottom: "5px" }}>Fecha Inicio:</label>
-                <input type="date" value={fechaInicio} onChange={(e) => setFechaInicio(e.target.value)} style={{ padding: "8px", borderRadius: "6px", border: "1px solid rgba(255,255,255,0.2)", background: "rgba(0,0,0,0.3)", color: "white" }} />
+                <label
+                  style={{
+                    display: "block",
+                    color: "#cbd5e1",
+                    fontSize: "14px",
+                    marginBottom: "5px",
+                  }}
+                >
+                  Fecha Inicio:
+                </label>
+                <input
+                  type="date"
+                  value={fechaInicio}
+                  onChange={(e) => setFechaInicio(e.target.value)}
+                  style={{
+                    padding: "8px",
+                    borderRadius: "6px",
+                    border: "1px solid rgba(255,255,255,0.2)",
+                    background: "rgba(0,0,0,0.3)",
+                    color: "white",
+                  }}
+                />
               </div>
               <div>
-                <label style={{ display: "block", color: "#cbd5e1", fontSize: "14px", marginBottom: "5px" }}>Fecha Fin:</label>
-                <input type="date" value={fechaFin} onChange={(e) => setFechaFin(e.target.value)} style={{ padding: "8px", borderRadius: "6px", border: "1px solid rgba(255,255,255,0.2)", background: "rgba(0,0,0,0.3)", color: "white" }} />
+                <label
+                  style={{
+                    display: "block",
+                    color: "#cbd5e1",
+                    fontSize: "14px",
+                    marginBottom: "5px",
+                  }}
+                >
+                  Fecha Fin:
+                </label>
+                <input
+                  type="date"
+                  value={fechaFin}
+                  onChange={(e) => setFechaFin(e.target.value)}
+                  style={{
+                    padding: "8px",
+                    borderRadius: "6px",
+                    border: "1px solid rgba(255,255,255,0.2)",
+                    background: "rgba(0,0,0,0.3)",
+                    color: "white",
+                  }}
+                />
               </div>
               <div style={{ display: "flex", alignItems: "flex-end" }}>
-                <button 
+                <button
                   onClick={() => obtenerEstadisticas(selectedLab)}
-                  style={{ background: "#3b82f6", color: "white", padding: "8px 16px", borderRadius: "6px", border: "none", cursor: "pointer" }}
+                  style={{
+                    background: "#3b82f6",
+                    color: "white",
+                    padding: "8px 16px",
+                    borderRadius: "6px",
+                    border: "none",
+                    cursor: "pointer",
+                  }}
                 >
                   Filtrar
                 </button>
@@ -1078,27 +1368,87 @@ export default function Dashboard({ onLogout }) {
             </div>
 
             {/* Tabla de reporte en lugar de Gráfica por hora */}
-            <p style={{ color: "#94a3b8", fontSize: "13px", marginBottom: "8px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px" }}>Reporte de Reservas</p>
-            <div ref={chartRef} style={{ width: '100%', maxHeight: '240px', overflowY: 'auto', background: 'rgba(15,23,42,0.7)', borderRadius: '10px', padding: '10px', marginBottom: '24px', border: '1px solid rgba(255,255,255,0.05)' }}>
+            <p
+              style={{
+                color: "#94a3b8",
+                fontSize: "13px",
+                marginBottom: "8px",
+                fontWeight: "600",
+                textTransform: "uppercase",
+                letterSpacing: "0.5px",
+              }}
+            >
+              Reporte de Reservas
+            </p>
+            <div
+              ref={chartRef}
+              style={{
+                width: "100%",
+                maxHeight: "240px",
+                overflowY: "auto",
+                background: "rgba(15,23,42,0.7)",
+                borderRadius: "10px",
+                padding: "10px",
+                marginBottom: "24px",
+                border: "1px solid rgba(255,255,255,0.05)",
+              }}
+            >
               {tablaData.length === 0 ? (
-                <div style={{ color: '#64748b', fontSize: '14px', textAlign: 'center', marginTop: '20px' }}>No hay reservas confirmadas para este filtro.</div>
+                <div
+                  style={{
+                    color: "#64748b",
+                    fontSize: "14px",
+                    textAlign: "center",
+                    marginTop: "20px",
+                  }}
+                >
+                  No hay reservas confirmadas para este filtro.
+                </div>
               ) : (
-                <table style={{ width: '100%', borderCollapse: 'collapse', color: 'white', fontSize: '14px' }}>
+                <table
+                  style={{
+                    width: "100%",
+                    borderCollapse: "collapse",
+                    color: "white",
+                    fontSize: "14px",
+                  }}
+                >
                   <thead>
-                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.2)' }}>
-                      <th style={{ padding: '8px', textAlign: 'left' }}>Fecha</th>
-                      <th style={{ padding: '8px', textAlign: 'left' }}>Hora</th>
-                      <th style={{ padding: '8px', textAlign: 'left' }}>Equipo</th>
-                      <th style={{ padding: '8px', textAlign: 'left' }}>Estación</th>
+                    <tr
+                      style={{
+                        borderBottom: "1px solid rgba(255,255,255,0.2)",
+                      }}
+                    >
+                      <th style={{ padding: "8px", textAlign: "left" }}>
+                        Fecha
+                      </th>
+                      <th style={{ padding: "8px", textAlign: "left" }}>
+                        Hora
+                      </th>
+                      <th style={{ padding: "8px", textAlign: "left" }}>
+                        Equipo
+                      </th>
+                      <th style={{ padding: "8px", textAlign: "left" }}>
+                        Estación
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {tablaData.map((row, index) => (
-                      <tr key={index} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                        <td style={{ padding: '8px' }}>{new Date(row.fecha).toLocaleDateString('es-ES')}</td>
-                        <td style={{ padding: '8px' }}>{row.hora.substring(0,5)}</td>
-                        <td style={{ padding: '8px' }}>{row.equipo}</td>
-                        <td style={{ padding: '8px' }}>{row.noEstacion}</td>
+                      <tr
+                        key={index}
+                        style={{
+                          borderBottom: "1px solid rgba(255,255,255,0.05)",
+                        }}
+                      >
+                        <td style={{ padding: "8px" }}>
+                          {new Date(row.fecha).toLocaleDateString("es-ES")}
+                        </td>
+                        <td style={{ padding: "8px" }}>
+                          {row.hora.substring(0, 5)}
+                        </td>
+                        <td style={{ padding: "8px" }}>{row.equipo}</td>
+                        <td style={{ padding: "8px" }}>{row.noEstacion}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1107,19 +1457,68 @@ export default function Dashboard({ onLogout }) {
             </div>
 
             {/* Gráfica por día */}
-            <p style={{ color: "#94a3b8", fontSize: "13px", marginBottom: "8px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px" }}>Por Día de la Semana</p>
-            <div ref={chartDiaRef} style={{ width: '100%', height: 240, background: 'rgba(15,23,42,0.7)', borderRadius: '10px', padding: '10px', marginBottom: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+            <p
+              style={{
+                color: "#94a3b8",
+                fontSize: "13px",
+                marginBottom: "8px",
+                fontWeight: "600",
+                textTransform: "uppercase",
+                letterSpacing: "0.5px",
+              }}
+            >
+              Por Día de la Semana
+            </p>
+            <div
+              ref={chartDiaRef}
+              style={{
+                width: "100%",
+                height: 240,
+                background: "rgba(15,23,42,0.7)",
+                borderRadius: "10px",
+                padding: "10px",
+                marginBottom: "8px",
+                border: "1px solid rgba(255,255,255,0.05)",
+              }}
+            >
               {statsDiaData.length === 0 ? (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#64748b', fontSize: '14px' }}>Sin datos suficientes</div>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    height: "100%",
+                    color: "#64748b",
+                    fontSize: "14px",
+                  }}
+                >
+                  Sin datos suficientes
+                </div>
               ) : (
                 <ResponsiveContainer>
-                  <BarChart data={statsDiaData} margin={{ top: 10, right: 20, left: 0, bottom: 5 }}>
-                    <XAxis dataKey="dia" stroke="#cbd5e1" tick={{ fontSize: 12 }} />
-                    <YAxis stroke="#cbd5e1" allowDecimals={false} tick={{ fontSize: 12 }} />
+                  <BarChart
+                    data={statsDiaData}
+                    margin={{ top: 10, right: 20, left: 0, bottom: 5 }}
+                  >
+                    <XAxis
+                      dataKey="dia"
+                      stroke="#cbd5e1"
+                      tick={{ fontSize: 12 }}
+                    />
+                    <YAxis
+                      stroke="#cbd5e1"
+                      allowDecimals={false}
+                      tick={{ fontSize: 12 }}
+                    />
                     <Tooltip
-                      contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.95)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', color: '#fff' }}
-                      itemStyle={{ color: '#a78bfa' }}
-                      formatter={(val, name) => [val, 'Reservas']}
+                      contentStyle={{
+                        backgroundColor: "rgba(15, 23, 42, 0.95)",
+                        border: "1px solid rgba(255,255,255,0.2)",
+                        borderRadius: "8px",
+                        color: "#fff",
+                      }}
+                      itemStyle={{ color: "#a78bfa" }}
+                      formatter={(val, name) => [val, "Reservas"]}
                     />
                     <Bar
                       dataKey="usos"
@@ -1132,7 +1531,14 @@ export default function Dashboard({ onLogout }) {
               )}
             </div>
 
-            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "24px", gap: "10px" }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                marginTop: "24px",
+                gap: "10px",
+              }}
+            >
               <button
                 style={{
                   background: "rgba(34, 197, 94, 0.15)",
@@ -1142,11 +1548,15 @@ export default function Dashboard({ onLogout }) {
                   borderRadius: "8px",
                   cursor: "pointer",
                   fontWeight: "bold",
-                  transition: "all 0.2s"
+                  transition: "all 0.2s",
                 }}
                 onClick={exportarExcel}
-                onMouseOver={(e) => e.target.style.background = "rgba(34, 197, 94, 0.3)"}
-                onMouseOut={(e) => e.target.style.background = "rgba(34, 197, 94, 0.15)"}
+                onMouseOver={(e) =>
+                  (e.target.style.background = "rgba(34, 197, 94, 0.3)")
+                }
+                onMouseOut={(e) =>
+                  (e.target.style.background = "rgba(34, 197, 94, 0.15)")
+                }
               >
                 Exportar Excel
               </button>
@@ -1159,11 +1569,15 @@ export default function Dashboard({ onLogout }) {
                   borderRadius: "8px",
                   cursor: "pointer",
                   fontWeight: "bold",
-                  transition: "all 0.2s"
+                  transition: "all 0.2s",
                 }}
                 onClick={exportarPDF}
-                onMouseOver={(e) => e.target.style.background = "rgba(239, 68, 68, 0.3)"}
-                onMouseOut={(e) => e.target.style.background = "rgba(239, 68, 68, 0.15)"}
+                onMouseOver={(e) =>
+                  (e.target.style.background = "rgba(239, 68, 68, 0.3)")
+                }
+                onMouseOut={(e) =>
+                  (e.target.style.background = "rgba(239, 68, 68, 0.15)")
+                }
               >
                 Exportar PDF
               </button>
@@ -1188,39 +1602,57 @@ export default function Dashboard({ onLogout }) {
       {/* MODAL MIS EQUIPOS */}
       {showMisEquiposModal && (
         <div className="modal-overlay">
-          <div className="modal-content login-glass-card" style={{ maxWidth: "550px" }}>
+          <div
+            className="modal-content login-glass-card"
+            style={{ maxWidth: "550px" }}
+          >
             <h2>Mis Equipos</h2>
             <p style={{ color: "var(--text-muted)", marginBottom: "20px" }}>
               Equipos en los que participas
             </p>
 
             {todosEquipos.length === 0 ? (
-              <p style={{ color: "var(--text-muted)" }}>No perteneces a ningún equipo aún.</p>
+              <p style={{ color: "var(--text-muted)" }}>
+                No perteneces a ningún equipo aún.
+              </p>
             ) : (
               <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
                 {todosEquipos.map((eq) => (
-                  <li 
+                  <li
                     key={eq.idEquipo}
-                    style={{ 
-                      display: "flex", 
-                      justifyContent: "space-between", 
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
                       alignItems: "center",
                       background: "rgba(0,0,0,0.2)",
                       padding: "14px",
                       borderRadius: "8px",
                       marginBottom: "10px",
-                      border: "1px solid rgba(255,255,255,0.05)"
+                      border: "1px solid rgba(255,255,255,0.05)",
                     }}
                   >
                     <div>
-                      <div style={{ fontWeight: "bold", color: "white", fontSize: "15px" }}>{eq.nombre}</div>
-                      <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "4px" }}>
+                      <div
+                        style={{
+                          fontWeight: "bold",
+                          color: "white",
+                          fontSize: "15px",
+                        }}
+                      >
+                        {eq.nombre}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: "12px",
+                          color: "var(--text-muted)",
+                          marginTop: "4px",
+                        }}
+                      >
                         Miembros: {eq.alumnos ? eq.alumnos.join(", ") : "—"}
                       </div>
                     </div>
                     <div style={{ display: "flex", gap: "6px" }}>
-
-                      <button 
+                      <button
                         onClick={() => handleEliminarEquipo(eq.idEquipo)}
                         style={{
                           background: "rgba(239, 68, 68, 0.15)",
@@ -1230,10 +1662,15 @@ export default function Dashboard({ onLogout }) {
                           borderRadius: "6px",
                           cursor: "pointer",
                           fontSize: "12px",
-                          transition: "all 0.2s"
+                          transition: "all 0.2s",
                         }}
-                        onMouseOver={(e) => e.target.style.background = "rgba(239, 68, 68, 0.3)"}
-                        onMouseOut={(e) => e.target.style.background = "rgba(239, 68, 68, 0.15)"}
+                        onMouseOver={(e) =>
+                          (e.target.style.background = "rgba(239, 68, 68, 0.3)")
+                        }
+                        onMouseOut={(e) =>
+                          (e.target.style.background =
+                            "rgba(239, 68, 68, 0.15)")
+                        }
                       >
                         Eliminar
                       </button>
@@ -1243,7 +1680,13 @@ export default function Dashboard({ onLogout }) {
               </ul>
             )}
 
-            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "24px" }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                marginTop: "24px",
+              }}
+            >
               <button
                 style={{
                   background: "transparent",
@@ -1263,63 +1706,121 @@ export default function Dashboard({ onLogout }) {
       )}
 
       {/* MODAL NOTIFICACIÓN (reemplaza alert nativo) */}
-      {notif.show && (() => {
-        const cfg = {
-          success: { icon: "✅", title: "Éxito",      accent: "34, 197, 94",  titleColor: "#86efac" },
-          error:   { icon: "❌", title: "Error",       accent: "239, 68, 68",  titleColor: "#fca5a5" },
-          info:    { icon: "ℹ️", title: "Información", accent: "59, 130, 246", titleColor: "#93c5fd" },
-        }[notif.type] || { icon: "ℹ️", title: "Información", accent: "59, 130, 246", titleColor: "#93c5fd" };
-        return (
-          <div className="modal-overlay" style={{ zIndex: 9999 }}>
-            <div className="modal-content login-glass-card" style={{
-              maxWidth: "420px",
-              textAlign: "center",
-              border: `1px solid rgba(${cfg.accent}, 0.35)`,
-              boxShadow: `0 0 30px rgba(${cfg.accent}, 0.15)`
-            }}>
-              
-              <h2 style={{ color: cfg.titleColor, marginBottom: "12px", fontSize: "20px" }}>{cfg.title}</h2>
-              <p style={{ color: "#cbd5e1", marginBottom: "28px", fontSize: "15px", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
-                {notif.message.replace(/^[✅❌ℹ️]\s*/, "")}
-              </p>
-              <button
+      {notif.show &&
+        (() => {
+          const cfg = {
+            success: {
+              title: "Éxito",
+              accent: "34, 197, 94",
+              titleColor: "#86efac",
+            },
+            error: {
+              title: "Error",
+              accent: "239, 68, 68",
+              titleColor: "#fca5a5",
+            },
+            info: {
+              title: "Información",
+              accent: "59, 130, 246",
+              titleColor: "#93c5fd",
+            },
+          }[notif.type] || {
+            title: "Información",
+            accent: "59, 130, 246",
+            titleColor: "#93c5fd",
+          };
+          return (
+            <div className="modal-overlay" style={{ zIndex: 9999 }}>
+              <div
+                className="modal-content login-glass-card"
                 style={{
-                  background: `rgba(${cfg.accent}, 0.2)`,
-                  color: cfg.titleColor,
-                  border: `1px solid rgba(${cfg.accent}, 0.4)`,
-                  padding: "10px 32px",
-                  borderRadius: "8px",
-                  cursor: "pointer",
-                  fontWeight: "bold",
-                  fontSize: "14px",
-                  transition: "all 0.2s"
+                  maxWidth: "420px",
+                  textAlign: "center",
+                  border: `1px solid rgba(${cfg.accent}, 0.35)`,
+                  boxShadow: `0 0 30px rgba(${cfg.accent}, 0.15)`,
                 }}
-                onClick={hideAlert}
-                onMouseOver={(e) => e.currentTarget.style.background = `rgba(${cfg.accent}, 0.4)`}
-                onMouseOut={(e) => e.currentTarget.style.background = `rgba(${cfg.accent}, 0.2)`}
               >
-                Aceptar
-              </button>
+                <h2
+                  style={{
+                    color: cfg.titleColor,
+                    marginBottom: "12px",
+                    fontSize: "20px",
+                  }}
+                >
+                  {cfg.title}
+                </h2>
+                <p
+                  style={{
+                    color: "#cbd5e1",
+                    marginBottom: "28px",
+                    fontSize: "15px",
+                    lineHeight: 1.6,
+                    whiteSpace: "pre-wrap",
+                  }}
+                >
+                  {notif.message.replace(/^[✅❌ℹ️]\s*/, "")}
+                </p>
+                <button
+                  style={{
+                    background: `rgba(${cfg.accent}, 0.2)`,
+                    color: cfg.titleColor,
+                    border: `1px solid rgba(${cfg.accent}, 0.4)`,
+                    padding: "10px 32px",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    fontWeight: "bold",
+                    fontSize: "14px",
+                    transition: "all 0.2s",
+                  }}
+                  onClick={hideAlert}
+                  onMouseOver={(e) =>
+                    (e.currentTarget.style.background = `rgba(${cfg.accent}, 0.4)`)
+                  }
+                  onMouseOut={(e) =>
+                    (e.currentTarget.style.background = `rgba(${cfg.accent}, 0.2)`)
+                  }
+                >
+                  Aceptar
+                </button>
+              </div>
             </div>
-          </div>
-        );
-      })()}
+          );
+        })()}
 
       {/* MODAL CONFIRMACIÓN (reemplaza window.confirm nativo) */}
       {confirmModal.show && (
         <div className="modal-overlay" style={{ zIndex: 9999 }}>
-          <div className="modal-content login-glass-card" style={{
-            maxWidth: "420px",
-            textAlign: "center",
-            border: "1px solid rgba(234, 179, 8, 0.35)",
-            boxShadow: "0 0 30px rgba(234, 179, 8, 0.12)"
-          }}>
-            
-            <h2 style={{ color: "#fde68a", marginBottom: "12px", fontSize: "20px" }}>Confirmar acción</h2>
-            <p style={{ color: "#cbd5e1", marginBottom: "28px", fontSize: "15px", lineHeight: 1.6 }}>
+          <div
+            className="modal-content login-glass-card"
+            style={{
+              maxWidth: "420px",
+              textAlign: "center",
+              border: "1px solid rgba(234, 179, 8, 0.35)",
+              boxShadow: "0 0 30px rgba(234, 179, 8, 0.12)",
+            }}
+          >
+            <h2
+              style={{
+                color: "#fde68a",
+                marginBottom: "12px",
+                fontSize: "20px",
+              }}
+            >
+              Confirmar acción
+            </h2>
+            <p
+              style={{
+                color: "#cbd5e1",
+                marginBottom: "28px",
+                fontSize: "15px",
+                lineHeight: 1.6,
+              }}
+            >
               {confirmModal.message}
             </p>
-            <div style={{ display: "flex", gap: "12px", justifyContent: "center" }}>
+            <div
+              style={{ display: "flex", gap: "12px", justifyContent: "center" }}
+            >
               <button
                 style={{
                   background: "transparent",
@@ -1330,11 +1831,15 @@ export default function Dashboard({ onLogout }) {
                   cursor: "pointer",
                   fontWeight: "bold",
                   fontSize: "14px",
-                  transition: "all 0.2s"
+                  transition: "all 0.2s",
                 }}
                 onClick={hideConfirm}
-                onMouseOver={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.07)"}
-                onMouseOut={(e) => e.currentTarget.style.background = "transparent"}
+                onMouseOver={(e) =>
+                  (e.currentTarget.style.background = "rgba(255,255,255,0.07)")
+                }
+                onMouseOut={(e) =>
+                  (e.currentTarget.style.background = "transparent")
+                }
               >
                 Cancelar
               </button>
@@ -1348,11 +1853,18 @@ export default function Dashboard({ onLogout }) {
                   cursor: "pointer",
                   fontWeight: "bold",
                   fontSize: "14px",
-                  transition: "all 0.2s"
+                  transition: "all 0.2s",
                 }}
-                onClick={() => { confirmModal.onConfirm && confirmModal.onConfirm(); hideConfirm(); }}
-                onMouseOver={(e) => e.currentTarget.style.background = "rgba(239, 68, 68, 0.4)"}
-                onMouseOut={(e) => e.currentTarget.style.background = "rgba(239, 68, 68, 0.2)"}
+                onClick={() => {
+                  confirmModal.onConfirm && confirmModal.onConfirm();
+                  hideConfirm();
+                }}
+                onMouseOver={(e) =>
+                  (e.currentTarget.style.background = "rgba(239, 68, 68, 0.4)")
+                }
+                onMouseOut={(e) =>
+                  (e.currentTarget.style.background = "rgba(239, 68, 68, 0.2)")
+                }
               >
                 Confirmar
               </button>
@@ -1360,9 +1872,6 @@ export default function Dashboard({ onLogout }) {
           </div>
         </div>
       )}
-
-
-
     </div>
   );
 }
